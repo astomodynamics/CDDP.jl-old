@@ -1,0 +1,216 @@
+#################################################################################################
+#=
+    Model for Hill-Clohessy-Wiltshire 
+=#
+#################################################################################################
+
+using LinearAlgebra
+using Distributions
+using Random
+using ForwardDiff
+# using StaticArrays
+
+export HCW
+
+# Linearized Spcaecraft Relative Motion Dynamics as a Julia class
+struct HCW <: AbstractDynamicsModel
+    x_dim::Int64 # total state dimension
+    u_dim::Int64 # total control input dimension
+
+    # simulation setting
+    tN::Int64 # number of discretization steps
+    tf::Float64 # final time 
+    dt::Float64 # discretization step-size
+
+    r_scale::Float64 # scaling factor for position
+    v_scale::Float64 # scaling factor for velocity
+
+    # Boundary  conditions
+    x_init::Vector{Float64}
+    x_final::Vector{Float64}
+
+    # problem constraints
+    xMax::Float64
+    xMin::Float64
+    uMax::Float64
+    uMin::Float64
+
+    # function storage
+    f!::Function # dynamic equation of motion without noise
+    F!::Function # noise map function
+    h!::Function # observation function
+
+    # dynamics parameters
+    ω::Float64 # orbital rate
+
+    # stochastic parameters
+    variance::Float64
+    distribution::Normal{Float64}
+    
+    function HCW()
+        x_dim = 6
+        u_dim = 3
+    
+        r_scale = 200
+        v_scale = 1
+    
+        x_init = [
+            -93.89268872140511 / r_scale
+            68.20928216330306 / r_scale
+            34.10464108165153 / r_scale
+            0.037865035768176944 / v_scale
+            0.2084906865487613 / v_scale
+            0.10424534327438065 / v_scale
+        ]
+    
+        x_final = [
+            -37.59664132226163 / r_scale
+            27.312455860666148 / r_scale
+            13.656227930333074 / r_scale
+            0.015161970413423813 / v_scale
+            0.08348413138390476 / v_scale
+            0.04174206569195238 / v_scale
+        ]
+        tf = 5000.0
+        tN = 500
+        dt = tf/tN
+    
+        xMax = 1e4
+        xMin = -1e4
+        uMax = 80e-6
+        uMin = -80e-6
+    
+        μ = 3.986004415e+5 # gravitational parameter of earth (km³/s²)
+        a = 6.8642335934215095e+3 # semimajor axis (km)
+        ω = sqrt(μ/a^3)
+    
+        mean = 0.0
+        variance = 1e-9
+        std = sqrt(variance)
+        distribution = Normal(mean, std)
+    
+        new(
+            x_dim,
+            u_dim,
+            tN,
+            tf,
+            dt,
+            r_scale,
+            v_scale,
+            x_init,
+            x_final,
+            xMax,
+            xMin,
+            uMax,
+            uMin,
+            f!,
+            F!,
+            h!,
+            ω,
+            variance,
+            distribution,
+        )
+    end
+end
+
+
+"""
+    f!(dx, x, p, t)
+
+The dynamic equation of motion.
+
+# Arguments
+- `x`: state at a given time step
+- `p`: parameter arguments
+- `t`: time
+"""
+function f!(dx::Vector, x::Vector, p::Parameters, t::Float64)
+    # necessary begin =>
+    model = p.model
+    δx = zeros(size(x,1))
+    if p.isarray
+        u = p.Uref 
+    else
+        u = p.Uref(t)
+    end
+
+    if !isequal(p.Xref, nothing)
+        xref = p.Xref(t)
+        δx = x - xref
+        u = p.Uref(t)  + p.L(t) * δx
+    end
+    # <= necessary end
+
+    """ edit begin >>>"""
+    r_scale = model.r_scale
+    v_scale = model.v_scale
+    ω = model.ω
+
+    x = [
+        x[1:3] * r_scale
+        x[4:6] * v_scale
+    ]
+
+    if isequal(p.diff_ind, 0)    
+        dx[1] = x[4] / r_scale
+        dx[2] = x[5] / r_scale
+        dx[3] = x[6] / r_scale
+        dx[4] = (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
+        dx[5] = -2*ω*x[4] / v_scale + u[2]
+        dx[6] = -ω^2*x[3] / v_scale + u[3]
+        
+    elseif isequal(p.diff_ind, 1)
+        return x[4] / r_scale
+    elseif isequal(p.diff_ind, 2)
+        return x[5] / r_scale
+    elseif isequal(p.diff_ind, 3)
+        return x[6] / r_scale
+    elseif isequal(p.diff_ind, 4)
+        return (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
+    elseif isequal(p.diff_ind, 5)
+        return -2*ω*x[4] / v_scale + u[2]
+    elseif isequal(p.diff_ind, 6)
+        return -ω^2*x[3] / v_scale + u[3]
+    end    
+    
+    """<<< edit end """
+
+    return dx
+end
+
+function F!(dx::Vector, x::Vector, p::Parameters, t::Float64)
+    model = p.model
+    std = sqrt(model.variance)
+
+    if !p.isarray
+        """ edit here >>>"""
+        dx[1] = std * 1.0
+        dx[2] = std * 1.0
+        dx[3] = std * 1.0
+        dx[4] = std * 1.0
+        dx[5] = std * 1.0
+        dx[6] = std * 1.0
+        """<<< edit end """
+    else
+        """ edit here >>>"""
+        dx = std * [
+            1.0
+            1.0
+            1.0
+            1.0
+            1.0
+            1.0
+        ]
+        """<<< edit end """
+        return dx
+    end
+end
+
+
+
+function h!(y::Vector, x::Vector, t::Float64)
+    y[1] = norm(x[1:3])
+    y[2] = atan(x[1]/x[2])
+    y[3] = atan(x[3]/norm(x[1:2]))
+    return y
+end
