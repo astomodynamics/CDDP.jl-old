@@ -29,7 +29,7 @@ struct Unicycle <: AbstractDynamicsModel
     # function storage
     f!::Function # dynamic equation of motion without noise
     
-    function Car2D()
+    function Unicycle()
         x_dim = 3
         u_dim = 2
     
