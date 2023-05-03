@@ -196,8 +196,29 @@ function get_ode_derivatives(
     ∇ₓf = zeros(x_dim, x_dim)
     ∇ᵤf = zeros(x_dim, u_dim)
     if isilqr
-        ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
-        ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        # ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
+        # ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        
+        ω = 0.0011101478090651878
+        r_scale = 200
+        ∇ₓf = [
+            0. 0. 0. 1/r_scale 0. 0.
+            0. 0. 0. 0. 1/r_scale 0.
+            0. 0. 0. 0. 0. 1/r_scale
+            3*ω^2*r_scale 0. 0. 0. 2*ω 0.
+            0. 0. 0. -2*ω 0. 0.
+            0. 0. -ω^2*r_scale 0. 0. 0.
+        ]
+
+        ∇ᵤf = [
+            0. 0. 0.
+            0. 0. 0.
+            0. 0. 0.
+            1. 0. 0.
+            0. 1. 0.
+            0. 0. 1.
+        ]
+
 
         return ∇ₓf, ∇ᵤf
     else
