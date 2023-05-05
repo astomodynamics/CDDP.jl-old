@@ -41,12 +41,19 @@ struct Car2D <: AbstractDynamicsModel
             0.0
         ]
     
+        # x_final = [
+        #     3.0
+        #     3.0 
+        #     pi/2
+        #     0.0
+        # ]
         x_final = [
-            3.0
-            3.0 
+            2.0
+            4.0
             pi/2
             0.0
         ]
+        
         tf = 5.0
         tN = 100
         dt = tf/tN

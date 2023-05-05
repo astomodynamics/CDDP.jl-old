@@ -16,6 +16,7 @@ function forward_pass_ilqr!(
         X_new::Vector{Vector{Float64}} = Vector[]
         U_new::Vector{Vector{Float64}} = Vector[]
         push!(X_new, x_new)
+
         for k in 0:prob.tN-1
             t = k*dt
             # deviation from nominal trajectory
@@ -72,6 +73,7 @@ function forward_pass_ddp!(
         X_new::Vector{Vector{Float64}} = Vector[]
         U_new::Vector{Vector{Float64}} = Vector[]
         push!(X_new, x_new)
+        
         for k in 0:prob.tN-1
             t = k*dt
             # deviation from nominal trajectory

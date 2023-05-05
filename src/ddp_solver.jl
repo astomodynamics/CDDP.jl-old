@@ -82,7 +82,7 @@ function solve_ilqr(
     reg_param2_lb=1e-12,
     reg_param1_ub=1e+2,
     reg_param2_ub=1e+2,
-    line_search_steps=4 .^ LinRange(0, -5, 15),
+    line_search_steps=5 .^ LinRange(0, -6, 30),
     X=nothing,
     U=nothing,
     randomize=false,
@@ -133,6 +133,7 @@ function solve_ilqr(
                   %d       %.6f,  
                 \n", ite, J)
         end
+
         backward_pass_ilqr!(sol, prob, ddp_params)
         forward_pass_ilqr!(sol, prob, ddp_params)
 
@@ -159,7 +160,7 @@ end
 function solve_ddp(
     prob::AbstractDDPProblem;
     max_ite::Int64=10,
-    tol::Float64=1e-5,
+    tol::Float64=1e-6,
     max_exe_time=120,
     reg_param1=1e-4,
     reg_param2=1e-2,
@@ -169,7 +170,7 @@ function solve_ddp(
     reg_param2_lb=1e-12,
     reg_param1_ub=1e+2,
     reg_param2_ub=1e+2,
-    line_search_steps=4 .^ LinRange(0, -5, 15),
+    line_search_steps=5 .^ LinRange(0, -6, 30),
     X=nothing,
     U=nothing,
     randomize=false,
@@ -221,6 +222,7 @@ function solve_ddp(
                   %d       %.6f,  
                 \n", ite, J)
         end
+        
         backward_pass_ddp!(sol, prob, ddp_params)
         forward_pass_ddp!(sol, prob, ddp_params)
 

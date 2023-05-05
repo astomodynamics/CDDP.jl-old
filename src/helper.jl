@@ -196,28 +196,28 @@ function get_ode_derivatives(
     ∇ₓf = zeros(x_dim, x_dim)
     ∇ᵤf = zeros(x_dim, u_dim)
     if isilqr
-        # ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
-        # ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
+        ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
         
-        ω = 0.0011101478090651878
-        r_scale = 200
-        ∇ₓf = [
-            0. 0. 0. 1/r_scale 0. 0.
-            0. 0. 0. 0. 1/r_scale 0.
-            0. 0. 0. 0. 0. 1/r_scale
-            3*ω^2*r_scale 0. 0. 0. 2*ω 0.
-            0. 0. 0. -2*ω 0. 0.
-            0. 0. -ω^2*r_scale 0. 0. 0.
-        ]
+        # ω = 0.0011101478090651878
+        # r_scale = 200
+        # ∇ₓf = [
+        #     0. 0. 0. 1/r_scale 0. 0.
+        #     0. 0. 0. 0. 1/r_scale 0.
+        #     0. 0. 0. 0. 0. 1/r_scale
+        #     3*ω^2*r_scale 0. 0. 0. 2*ω 0.
+        #     0. 0. 0. -2*ω 0. 0.
+        #     0. 0. -ω^2*r_scale 0. 0. 0.
+        # ]
 
-        ∇ᵤf = [
-            0. 0. 0.
-            0. 0. 0.
-            0. 0. 0.
-            1. 0. 0.
-            0. 1. 0.
-            0. 0. 1.
-        ]
+        # ∇ᵤf = [
+        #     0. 0. 0.
+        #     0. 0. 0.
+        #     0. 0. 0.
+        #     1. 0. 0.
+        #     0. 1. 0.
+        #     0. 0. 1.
+        # ]
 
 
         return ∇ₓf, ∇ᵤf
@@ -443,10 +443,11 @@ function get_trajectory_cost(
 )
     J = 0
     for k in 1:tN
+        t = k*dt
         if isequal(X_ref, nothing)
-            J += ell(X(k*dt), U(k*dt), zeros(axes(X(k*dt), 1)))
+            J += ell(X(t), U(t), zeros(axes(X(t), 1)))
         else
-            J += ell(X(k*dt), U(k*dt), X_ref(k*dt))
+            J += ell(X(t), U(t), X_ref(t))
         end
         # J += ell(X(k*dt), U(k*dt), x_final) * dt
     end

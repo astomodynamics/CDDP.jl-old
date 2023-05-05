@@ -64,9 +64,9 @@ function backward_pass_ilqr!(
 
         ∇ₓₓQ = ∇ₓₓell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ₓf_arr[k]
         ∇ₓᵤQ = ∇ₓᵤell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k]
-        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k]
-        ∇ᵤᵤQ += reg_param2 * I
+        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k] + reg_param2 * I
 
+        # gains_mat = -∇ᵤᵤQ \ [∇ᵤQ  ∇ₓᵤQ'] 
         gains_mat = Matrix[]
         try
             C = cholesky(Hermitian(∇ᵤᵤQ)) # Cholesky factorization for accelerating computation
@@ -180,7 +180,7 @@ function backward_pass_ddp!(
 
         ∇ₓₓQ = ∇ₓₓell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ₓf_arr[k]
         ∇ₓᵤQ = ∇ₓᵤell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k]
-        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k]
+        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k] + reg_param2 * I
 
         if !isilqr
             for j = 1:prob.x_dim
@@ -189,8 +189,6 @@ function backward_pass_ddp!(
                 ∇ᵤᵤQ += ∇ₓV[j] .* ∇ᵤᵤf_arr[k][j, :, :]
             end
         end
-
-        ∇ᵤᵤQ += reg_param2 * I
 
         gains_mat = Matrix[]
         # try
@@ -315,7 +313,7 @@ function backward_pass_cddp!(
 
         ∇ₓₓQ = ∇ₓₓell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ₓf_arr[k]
         ∇ₓᵤQ = ∇ₓᵤell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k]
-        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k]
+        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param1 * I) * ∇ᵤf_arr[k] + reg_param2 * I
 
         if !isilqr
             for j = 1:prob.x_dim
@@ -324,8 +322,6 @@ function backward_pass_cddp!(
                 ∇ᵤᵤQ += ∇ₓV[j] .* ∇ᵤᵤf_arr[k][j, :, :]
             end
         end
-
-        ∇ᵤᵤQ += reg_param2 * I # add regularization term
         
         c = prob.c(x, u)
         ∇ₓc, ∇ᵤc, ∇ₓₓc, ∇ₓᵤc, ∇ᵤᵤc = get_instant_const_derivative(prob.c, x, u)
