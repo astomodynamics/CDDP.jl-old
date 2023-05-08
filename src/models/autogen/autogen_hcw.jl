@@ -22,3 +22,7 @@ println(df1)
 
 df2 = Symbolics.jacobian(f, [x, y, z, vx, vy, vz])
 println(df2)
+
+f_expr = build_function(df2, [x, y, z, vx, vy, vz])
+
+write("./src/models/autogen_hcw_f.jl", string(f_expr))
