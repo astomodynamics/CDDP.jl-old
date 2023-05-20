@@ -73,14 +73,15 @@ function f!(dx,x,p,t)
     model = p.model
     δx = zeros(size(x,1))
     if p.isarray
-        u = p.Uref 
+        u = p.U_ref 
     else
-        u = p.Uref(t)
+        u = p.U_ref(t)
     end
 
-    if !isequal(p.Xref, nothing)
-        xref = p.Xref(t)
-        δx = x - xref
+    # if the reference trajectory and feedback gains are given do feedback control
+    if !isequal(p.X_ref, nothing)
+        x_ref = p.X_ref(t)
+        δx = x - x_ref
         u = p.Uref(t)  + p.L(t) * δx
     end
     # <= necessary end
@@ -88,26 +89,10 @@ function f!(dx,x,p,t)
     T_max = model.T_max
     m_dot = model.m_dot
     r = norm(x[1:3])
-
-    if isequal(p.diff_ind, 0)    
-        dx[1:3] = x[4:6]
-        dx[4:6] = -μ/r^3 * x[1:3] + T_max/x[7] * u
-        dx[7] = -norm(u)*m_dot
+ 
+    dx[1:3] = x[4:6]
+    dx[4:6] = -μ/r^3 * x[1:3] + T_max/x[7] * u
+    dx[7] = -norm(u)*m_dot
         
-    elseif isequal(p.diff_ind, 1)
-        return x[4]
-    elseif isequal(p.diff_ind, 2)
-        return x[5]
-    elseif isequal(p.diff_ind, 3)
-        return x[6]
-    elseif isequal(p.diff_ind, 4)
-        return -μ/r^3 * x[1] + T_max/x[7] * u[1]
-    elseif isequal(p.diff_ind, 5)
-        return -μ/r^3 * x[2] + T_max/x[7] * u[2]
-    elseif isequal(p.diff_ind, 6)
-        return -μ/r^3 * x[3] + T_max/x[7] * u[3]
-    elseif isequal(p.diff_ind, 7)
-        return -norm(u)*m_dot
-    end    
     return dx
 end

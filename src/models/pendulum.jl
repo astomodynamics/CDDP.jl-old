@@ -1,18 +1,17 @@
 #################################################################################################
 #=
-    Model for 2-dimentional car dynamics
+    Model for inverted pendulum dynamics
 =#
 #################################################################################################
 
 using LinearAlgebra
 using Distributions
 using Random
-using ForwardDiff
 
-export Car2D
+export Pendulum
 
-# Car2D as a Julia class
-struct Car2D <: AbstractDynamicsModel
+# CartPole as a Julia class
+struct Pendulum <: AbstractDynamicsModel
     x_dim::Int64 # total state dimension
     u_dim::Int64 # total control input dimension
 
@@ -28,36 +27,38 @@ struct Car2D <: AbstractDynamicsModel
 
     # function storage
     f!::Function # dynamic equation of motion without noise
+
+    # dynamics constants
+    m::Float64
+    l::Float64
+    b::Float64
+    g::Float64
     
-    function Car2D()
-        x_dim = 4
-        u_dim = 2
+    
+    function Pendulum()
+        x_dim = 2
+        u_dim = 1
     
     
         x_init = [
-            0.0
-            0.0
-            0.0
-            0.0
+            0.
+            0.
         ]
     
-        # x_final = [
-        #     3.0
-        #     3.0 
-        #     pi/2
-        #     0.0
-        # ]
         x_final = [
-            2.0
-            4.0
-            pi/2
-            0.0
+            π
+            0.
         ]
         
         tf = 5.0
         tN = 100
         dt = tf/tN
-    
+        
+        m = 1.0
+        l = 1.0
+        b = 0.1
+        g = 9.81
+
     
         new(
             x_dim,
@@ -68,6 +69,10 @@ struct Car2D <: AbstractDynamicsModel
             x_init,
             x_final,
             f!,
+            m,
+            l,
+            b,
+            g
         )
     end
 end
@@ -84,7 +89,7 @@ The dynamic equation of motion.
 - `p`: parameter arguments
 - `t`: time
 """
-function f!(dx::Vector, x::Vector, p::Parameters, t::Float64)
+function f!(dx::Vector, x::Vector, p::AbstractParameter, t::Float64)
     # necessary part begins =>
     model = p.model
     δx = zeros(size(x,1))
@@ -102,15 +107,31 @@ function f!(dx::Vector, x::Vector, p::Parameters, t::Float64)
     end
     # <= necessary part ends
 
-    """ edit begins >>>"""
+    """ edit begins >>>"""  
+    m = model.m  # mass of the pole in kg 
+    l = model.l   # length of the pole in m
+    b = model.b  # damping coefficient
+    g = model.g  # gravity m/s^2
 
-    dx[1] = x[4] * sin(x[3])
-    dx[2] = x[4] * cos(x[3])
-    dx[3] = x[4] * u[1]
-    dx[4] = u[2]
-    return dx
+    q = x[1]
+    q̇ = x[2]
+
+    s, c = sincos(q[1])
+
+    # inertia terms
+    H = m*l^2
+    # gravity terms
+    G = m*g*l*s
+    # coriolis and centrifugal terms
+    C = b
+    # control input terms
+    B = 1.
+
+    q̈ = H \ (- G - C * q̇ + B * u[1])
+
+    dx[1] = q̇
+    dx[2] = q̈
     
     """<<< edit ends """
-
-    
+    return dx
 end

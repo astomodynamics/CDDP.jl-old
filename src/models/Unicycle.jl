@@ -94,19 +94,9 @@ function f!(dx::Vector, x::Vector, p::Parameters, t::Float64)
 
     """ edit begins >>>"""
 
-    if isequal(p.diff_ind, 0)    
-        dx[1] = u[1] * sin(x[3])
-        dx[2] = u[1] * cos(x[3])
-        dx[3] = u[2]
-        return dx
-        
-    elseif isequal(p.diff_ind, 1)
-        return u[1] * sin(x[3])
-    elseif isequal(p.diff_ind, 2)
-        return u[1] * cos(x[3])
-    elseif isequal(p.diff_ind, 3)
-        return u[2]
-    end    
+    dx[1] = u[1] * sin(x[3])
+    dx[2] = u[1] * cos(x[3])
+    dx[3] = u[2]
     
     """<<< edit ends """
 

@@ -124,19 +124,20 @@ The dynamic equation of motion.
 - `p`: parameter arguments
 - `t`: time
 """
-function f!(dx::Vector, x::Vector, p::Parameters, t::Float64)
+function f!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
     # necessary begin =>
     model = p.model
     δx = zeros(size(x,1))
     if p.isarray
-        u = p.Uref 
+        u = p.U_ref 
     else
-        u = p.Uref(t)
+        u = p.U_ref(t)
     end
 
-    if !isequal(p.Xref, nothing)
-        xref = p.Xref(t)
-        δx = x - xref
+    # if the reference trajectory and feedback gains are given do feedback control
+    if !isequal(p.X_ref, nothing)
+        x_ref = p.X_ref(t)
+        δx = x - x_ref
         u = p.Uref(t)  + p.L(t) * δx
     end
     # <= necessary end
@@ -151,34 +152,19 @@ function f!(dx::Vector, x::Vector, p::Parameters, t::Float64)
         x[4:6] * v_scale
     ]
 
-    if isequal(p.diff_ind, 0)    
-        dx[1] = x[4] / r_scale
-        dx[2] = x[5] / r_scale
-        dx[3] = x[6] / r_scale
-        dx[4] = (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
-        dx[5] = -2*ω*x[4] / v_scale + u[2]
-        dx[6] = -ω^2*x[3] / v_scale + u[3]
-        
-    elseif isequal(p.diff_ind, 1)
-        return x[4] / r_scale
-    elseif isequal(p.diff_ind, 2)
-        return x[5] / r_scale
-    elseif isequal(p.diff_ind, 3)
-        return x[6] / r_scale
-    elseif isequal(p.diff_ind, 4)
-        return (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
-    elseif isequal(p.diff_ind, 5)
-        return -2*ω*x[4] / v_scale + u[2]
-    elseif isequal(p.diff_ind, 6)
-        return -ω^2*x[3] / v_scale + u[3]
-    end    
+    dx[1] = x[4] / r_scale
+    dx[2] = x[5] / r_scale
+    dx[3] = x[6] / r_scale
+    dx[4] = (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
+    dx[5] = -2*ω*x[4] / v_scale + u[2]
+    dx[6] = -ω^2*x[3] / v_scale + u[3]
     
     """<<< edit end """
 
     return dx
 end
 
-function F!(dx::Vector, x::Vector, p::Parameters, t::Float64)
+function F!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
     model = p.model
     std = sqrt(model.variance)
 
