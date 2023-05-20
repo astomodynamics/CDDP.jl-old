@@ -3,35 +3,37 @@
 struct ODE parameters
     
 """
-struct ODEParams <: Parameters
+struct ODEParams <: AbstractParameter
     model::AbstractDynamicsModel
-    Uref::Any
-    Xref::Any
+    U_ref::Any
+    X_ref::Any
     l::Any
     L::Any
     isarray::Bool
     diff_ind::Int64
+
+    function ODEParams(
+        model, 
+        U_ref;
+        X_ref=nothing,
+        l=nothing,
+        L=nothing,
+        isarray::Bool=false,
+        diff_ind::Int64=0
+        )
+        new(
+            model,
+            U_ref,
+            X_ref,
+            l,
+            L,
+            isarray,
+            diff_ind
+        )
+    end
 end
 
-function ODEParams(
-    model, 
-    Uref;
-    Xref=nothing,
-    l=nothing,
-    L=nothing,
-    isarray::Bool=false,
-    diff_ind::Int64=0
-    )
-    ODEParams(
-        model,
-        Uref,
-        Xref,
-        l,
-        L,
-        isarray,
-        diff_ind
-    )
-end
+
 
 """
     initialize_trajectory(model)
@@ -71,19 +73,20 @@ function initialize_trajectory(
     dt = tf/tN
     # initialize U array
     if randomize
-        U = 1e-9 * rand(Float64,(model.u_dim, tN - 1)) # use this if you want randomized initial trajectory
+        U_mat = 1e-9 * rand(Float64,(tN+1, model.u_dim)) # use this if you want randomized initial trajectory
     else
-        U = zeros(tN, model.u_dim)
+        U_mat = zeros(tN+1, model.u_dim)
     end
 
-    U = Vector[U[t, :] for t in axes(U,1)]
-    # convert U array into U_func as a continuous function
-    U_func = linear_interpolation((collect(LinRange(0.0, tf, tN)),), U, extrapolation_bc = Line())
-
+    U_vec = Vector[U_mat[t, :] for t in axes(U_mat,1)]
+    # convert U array into U as a continuous function
+    # U = linear_interpolation((0:tN)*tf/tN, U_vec, extrapolation_bc = Line())
+    U = CubicSpline(U_vec, 0:dt:tf)
+    
     if !isstochastic
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
-        p = ODEParams(model, U_func)
+        p = ODEParams(model, U)
         
         # define ODE problem
         prob = ODEProblem(f!, x_init, (0.0,tf), p)
@@ -93,7 +96,7 @@ function initialize_trajectory(
     else
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
-        p = ODEParams(model, U_func)
+        p = ODEParams(model, U)
 
         # define SDE problem
         prob = SDEProblem(f!, F!, x_init, (0.0, tf), p, noise=WienerProcess(0.0, 0.0, 0.0))
@@ -101,7 +104,7 @@ function initialize_trajectory(
         # solve SDE problem
         X = solve(prob, sde_alg, dt=dt)
     end
-    return X, U_func
+    return X, U
 end
 
 
@@ -122,7 +125,7 @@ function simulate_trajectory(
     dt::Float64;
     f!::Function=model.f!,
     F!::Function=empty,
-    Xref=nothing,
+    X_ref=nothing,
     l=nothing,
     L=nothing,
     isfeedback::Bool=false,
@@ -139,7 +142,7 @@ function simulate_trajectory(
         if !isfeedback
             p = ODEParams(model, U)
         else
-            p = ODEParams(model, U, Xref=Xref, l=l, L=L)
+            p = ODEParams(model, U, X_ref=X_ref, l=l, L=L)
         end
 
         # define ODE problem
@@ -153,7 +156,7 @@ function simulate_trajectory(
         if !isfeedback
             p = ODEParams(model, U)
         else
-            p = ODEParams(model, U, Xref=Xref, l=l, L=L)
+            p = ODEParams(model, U, X_ref=X_ref, l=l, L=L)
         end
 
         # define SDE problem
@@ -167,20 +170,39 @@ function simulate_trajectory(
 end
 
 
-function f(f!::Function, x::Vector, p::Parameters, t::Float64)
-    dx = f!(zeros(size(x,1)), x, p, t)
-    return dx
+
+function x_hessian(problem, x, u, t)
+    n = length(x)
+    out = ForwardDiff.jacobian(
+        x -> ForwardDiff.jacobian(y -> problem.f!(zeros(n), y, ODEParams(problem.model, u, isarray=true), t), x), x)
+    return reshape(out, n, n, n)
 end
+
+function u_hessian(problem, x, u, t)
+    n = length(x)
+    m = length(u)
+    out = ForwardDiff.jacobian(
+    u -> ForwardDiff.jacobian(y -> problem.f!(zeros(n), x, ODEParams(problem.model, y, isarray=true), t), u), u)
+    return reshape(out, n, m, m)
+end
+
+function xu_hessian(problem, x, u, t)
+    n = length(x)
+    m = length(u)
+    out = ForwardDiff.jacobian(
+    z -> ForwardDiff.jacobian(y -> problem.f!(zeros(n), z, ODEParams(problem.model, y, isarray=true), t), u), x)
+    return reshape(out, n, n, m)
+end
+
+# function f(problem, x, p, t)
+#     return problem.f!(zeros(problem.x_dim), x, p, t)
+# end
+
 
 """
     get_ode_derivatives(model, x, p, t, )
 
 # NOTE: there might be a more efficient way to find hessian matrix
-
-# NOTE: there are mainly three ways to compute jacobian. The first one is the fastest
-    1. ForwardDiff.jacobian!(fx, (y,x) -> f_x_reduc!(y,x,u, model), dx, model.x_init)
-    2. ForwardDiff.jacobian((y,x) -> f_x_reduc!(y,x,u, model), dx, model.x_init)
-    3. ForwardDiff.jacobian(x -> f_x_reduc(x, u, t, model), model.x_init)
 """
 function get_ode_derivatives(
     problem::AbstractDDPProblem,
@@ -196,46 +218,23 @@ function get_ode_derivatives(
     ∇ₓf = zeros(x_dim, x_dim)
     ∇ᵤf = zeros(x_dim, u_dim)
     if isilqr
-        ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
-        ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        # ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
+        # ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        # ∇ₓf = ForwardDiff.jacobian((dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
+        # ∇ᵤf = ForwardDiff.jacobian((dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        # ∇ₓf = ForwardDiff.jacobian(x -> f(problem, x, ODEParams(problem.model, u, isarray=true), t), x)
+        # ∇ᵤf = ForwardDiff.jacobian(u -> f(problem, x, ODEParams(problem.model, u, isarray=true), t), u)
         
-        # ω = 0.0011101478090651878
-        # r_scale = 200
-        # ∇ₓf = [
-        #     0. 0. 0. 1/r_scale 0. 0.
-        #     0. 0. 0. 0. 1/r_scale 0.
-        #     0. 0. 0. 0. 0. 1/r_scale
-        #     3*ω^2*r_scale 0. 0. 0. 2*ω 0.
-        #     0. 0. 0. -2*ω 0. 0.
-        #     0. 0. -ω^2*r_scale 0. 0. 0.
-        # ]
-
-        # ∇ᵤf = [
-        #     0. 0. 0.
-        #     0. 0. 0.
-        #     0. 0. 0.
-        #     1. 0. 0.
-        #     0. 1. 0.
-        #     0. 0. 1.
-        # ]
-
-
+        # ∇ᵤf = ForwardDiff.jacobian((dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        
         return ∇ₓf, ∇ᵤf
     else
         ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
         ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
-        ∇ₓₓf = zeros(x_dim, x_dim, x_dim)
-        ∇ₓᵤf = zeros(x_dim, x_dim, u_dim)
-        ∇ᵤᵤf = zeros(x_dim, u_dim, u_dim)
-        for i in 1:x_dim
-            ForwardDiff.hessian!(
-                ∇ₓₓf[i,:,:], x -> f(problem.f!, x, ODEParams(problem.model, u, isarray=true, diff_ind=i), t), x)
-            ForwardDiff.hessian!(
-                ∇ᵤᵤf[i,:,:], u -> f(problem.f!, x, ODEParams(problem.model, u, isarray=true, diff_ind=i), t), u)
-            # ForwardDiff.jacobian!(
-            #     ∇ₓᵤf[i,:,:], u -> ForwardDiff.gradient(
-            #         x -> f(problem.f!, x, ODEParams(problem.model, u, isarray=true, diff_ind=i), t), x), u)
-        end
+        
+        # ∇ₓₓf = x_hessian(problem, x, u, t)
+        # ∇ₓᵤf = xu_hessian(problem, x, u, t)
+        # ∇ᵤᵤf = u_hessian(problem, x, u, t)
         return ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf
     end 
 end
@@ -369,15 +368,15 @@ Returns one step of runge-kutta ode step with fixed time length
 function rk4_step(
     f!::Function,
     x::Vector{Float64},
-    p::Parameters,
+    p::AbstractParameter,
     t::Float64;
     h::Float64=model.dt,
 )
-    dx = zeros(size(x,1))
-    k1 = f!(dx, x, p, t+0.0)
-    k2 = f!(dx, x + h / 2.0 * k1, p, t + h / 2.0)
-    k3 = f!(dx, x + h / 2.0 * k2, p, t + h / 2.0)
-    k4 = f!(dx, x + h * k3, p, t + h)
+    # dx = zeros(size(x,1))
+    k1 = f!(zeros(size(x,1)), x, p, t+0.0)
+    k2 = f!(zeros(size(x,1)), x + h / 2.0 * k1, p, t + h / 2.0)
+    k3 = f!(zeros(size(x,1)), x + h / 2.0 * k2, p, t + h / 2.0)
+    k4 = f!(zeros(size(x,1)), x + h * k3, p, t + h)
     return (k1 + 2 * k2 + 2 * k3 + k4)/6
 end
 
@@ -385,7 +384,7 @@ end
 function rk2_step(
     f!::Function,
     x::Vector{Float64},
-    p::Parameters,
+    p::AbstractParameter,
     t::Float64;
     h::Float64=model.dt,
 )
@@ -399,7 +398,7 @@ end
 function euler_step(
     f!::Function,
     x::Vector{Float64},
-    p::Parameters,
+    p::AbstractParameter,
     t::Float64;
     h::Float64=model.dt,
 )
@@ -442,14 +441,13 @@ function get_trajectory_cost(
     dt::Float64,
 )
     J = 0
-    for k in 1:tN
+    for k in 0:tN-1
         t = k*dt
         if isequal(X_ref, nothing)
-            J += ell(X(t), U(t), zeros(axes(X(t), 1)))
+            J += ell(X(t), U(t), zeros(axes(X(t), 1))) * dt
         else
-            J += ell(X(t), U(t), X_ref(t))
+            J += ell(X(t), U(t), X_ref(t)) * dt
         end
-        # J += ell(X(k*dt), U(k*dt), x_final) * dt
     end
     
     J += ϕ(X(tN*dt), x_final)
