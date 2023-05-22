@@ -24,7 +24,8 @@ struct iLQRProblem <: AbstractDDPProblem
     ϕ::Function # terminal cost function
 
     # dynamics
-    f!::Function # dynamics model function
+    f::Function # dynamics model function
+    ∇f::Function # derivative of dynamics
 
     # boundary conditions
     x_init::Vector{Float64} # initial state 
@@ -50,7 +51,8 @@ struct DDPProblem <: AbstractDDPProblem
     ϕ::Function # terminal cost function
 
     # dynamics
-    f!::Function # dynamics model function
+    f::Function # dynamics model function
+    ∇f::Function # derivative of dynamics
 
     # boundary conditions
     x_init::Vector{Float64} # initial state 
@@ -77,7 +79,8 @@ struct CDDPProblem <: AbstractDDPProblem
     ϕ::Function # terminal cost function
 
     # dynamics
-    f!::Function # dynamics model function
+    f::Function # dynamics model function
+    ∇f::Function # derivative of dynamics
 
     # boundary conditions
     x_init::Vector{Float64} # initial state 

@@ -12,7 +12,7 @@ using Random
 export CartPole
 
 # CartPole as a Julia class
-struct CartPole <: AbstractDynamicsModel
+mutable struct CartPole <: AbstractDynamicsModel
     x_dim::Int64 # total state dimension
     u_dim::Int64 # total control input dimension
 
@@ -27,7 +27,7 @@ struct CartPole <: AbstractDynamicsModel
     x_final::Vector{Float64}
 
     # function storage
-    f!::Function # dynamic equation of motion without noise
+    f::Function # dynamic equation of motion without noise
     ∇f::Function # derivative of dynamics
 
     # dynamics constants
@@ -43,7 +43,7 @@ struct CartPole <: AbstractDynamicsModel
     
         x_init = [
             0.
-            pi-0.6
+            0.
             0.
             0.
         ]
@@ -73,7 +73,7 @@ struct CartPole <: AbstractDynamicsModel
             dt,
             x_init,
             x_final,
-            f!,
+            f,
             ∇f,
             mc,
             mp,
@@ -95,12 +95,13 @@ The dynamic equation of motion.
 - `p`: parameter arguments
 - `t`: time
 """
-function f!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
+function f(x::Vector, p::ODEParams, t::Float64)
     model = p.model
     δx = zeros(size(x,1))
     if p.isarray
         u = p.U_ref 
     else
+        u = p.U_ref[trunc(Int, t/model.dt)+1]
         u = p.U_ref(t)
     end
 
@@ -148,6 +149,12 @@ function f!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
 
     q̈ = H \ (- C*q̇ - G + B*u[1])
 
+    return [
+        q̇
+        q̈
+    ]
+
+    """<<< edit ends """
     #############################
     # θ = x[2]
     # θ̇ = x[4]
@@ -156,26 +163,6 @@ function f!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
     #     (-u[1] * cos(θ) - mp * l * θ̇^2 * cos(θ) * sin(θ) - (mc + mp) * g * sin(θ)) / l / (mc + mp * sin(θ)^2)
     # ]
     #############################
-
-    # if p.isarray
-    #     # dx = [
-    #     #     q̇
-    #     #     q̈
-    #     # ]
-    #     return [
-    #             q̇
-    #             q̈
-    #         ]
-    # else
-    #     dx[1:2] = q̇
-    #     dx[3:4] = q̈
-    #     # return dx
-    # end
-    dx[1:2] = q̇
-    dx[3:4] = q̈
-
-    """<<< edit ends """
-    return dx
 end
 
 

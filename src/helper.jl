@@ -61,12 +61,12 @@ function initialize_trajectory(
     x_init::Vector{Float64}=model.x_init, 
     tf::Float64=model.tf,
     tN::Int64=model.tN,
-    f!::Function=model.f!,
-    F!::Function=empty,
+    f::Function=model.f,
+    F::Function=empty,
     ode_alg=Tsit5(),
     sde_alg=EM(),
-    reltol=1e-8, 
-    abstol=1e-8,
+    reltol=1e-12, 
+    abstol=1e-12,
     randomize::Bool=false,
     isstochastic::Bool=false,
 )
@@ -89,7 +89,7 @@ function initialize_trajectory(
         p = ODEParams(model, U)
         
         # define ODE problem
-        prob = ODEProblem(f!, x_init, (0.0,tf), p)
+        prob = ODEProblem(f, x_init, (0.0,tf), p)
 
         # solve ODE problem
         X = solve(prob, ode_alg, reltol=reltol, abstol=abstol)
@@ -99,7 +99,7 @@ function initialize_trajectory(
         p = ODEParams(model, U)
 
         # define SDE problem
-        prob = SDEProblem(f!, F!, x_init, (0.0, tf), p, noise=WienerProcess(0.0, 0.0, 0.0))
+        prob = SDEProblem(f, F, x_init, (0.0, tf), p, noise=WienerProcess(0.0, 0.0, 0.0))
         
         # solve SDE problem
         X = solve(prob, sde_alg, dt=dt)
@@ -123,16 +123,16 @@ function simulate_trajectory(
     U,
     tf::Float64,
     dt::Float64;
-    f!::Function=model.f!,
-    F!::Function=empty,
+    f::Function=model.f,
+    F::Function=empty,
     X_ref=nothing,
     l=nothing,
     L=nothing,
     isfeedback::Bool=false,
     ode_alg=Tsit5(),
     sde_alg=EM(),
-    reltol=1e-8, 
-    abstol=1e-8,
+    reltol=1e-12, 
+    abstol=1e-12,
     randomize::Bool=false,
     isstochastic::Bool=false,
 )   
@@ -146,7 +146,7 @@ function simulate_trajectory(
         end
 
         # define ODE problem
-        prob = ODEProblem(f!, x_init, (0.0,tf), p)
+        prob = ODEProblem(f, x_init, (0.0,tf), p)
 
         # solve ODE problem
         X = solve(prob, ode_alg, reltol=reltol, abstol=abstol)
@@ -160,7 +160,7 @@ function simulate_trajectory(
         end
 
         # define SDE problem
-        prob = SDEProblem(f!, F!, x_init, (0.0, tf), p, noise=WienerProcess(0.0, 0.0, 0.0))
+        prob = SDEProblem(f, F, x_init, (0.0, tf), p, noise=WienerProcess(0.0, 0.0, 0.0))
         
         # solve SDE problem
         X = solve(prob, sde_alg, dt=dt)
@@ -174,7 +174,7 @@ end
 function x_hessian(problem, x, u, t)
     n = length(x)
     out = ForwardDiff.jacobian(
-        x -> ForwardDiff.jacobian(y -> problem.f!(zeros(n), y, ODEParams(problem.model, u, isarray=true), t), x), x)
+        x -> ForwardDiff.jacobian(y -> problem.f(y, ODEParams(problem.model, u, isarray=true), t), x), x)
     return reshape(out, n, n, n)
 end
 
@@ -182,7 +182,7 @@ function u_hessian(problem, x, u, t)
     n = length(x)
     m = length(u)
     out = ForwardDiff.jacobian(
-    u -> ForwardDiff.jacobian(y -> problem.f!(zeros(n), x, ODEParams(problem.model, y, isarray=true), t), u), u)
+    u -> ForwardDiff.jacobian(y -> problem.f(x, ODEParams(problem.model, y, isarray=true), t), u), u)
     return reshape(out, n, m, m)
 end
 
@@ -190,13 +190,10 @@ function xu_hessian(problem, x, u, t)
     n = length(x)
     m = length(u)
     out = ForwardDiff.jacobian(
-    z -> ForwardDiff.jacobian(y -> problem.f!(zeros(n), z, ODEParams(problem.model, y, isarray=true), t), u), x)
+    z -> ForwardDiff.jacobian(y -> problem.f(z, ODEParams(problem.model, y, isarray=true), t), u), x)
     return reshape(out, n, n, m)
 end
 
-# function f(problem, x, p, t)
-#     return problem.f!(zeros(problem.x_dim), x, p, t)
-# end
 
 
 """
@@ -222,16 +219,16 @@ function get_ode_derivatives(
         # ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
         # ∇ₓf = ForwardDiff.jacobian((dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
         # ∇ᵤf = ForwardDiff.jacobian((dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
-        # ∇ₓf = ForwardDiff.jacobian(x -> f(problem, x, ODEParams(problem.model, u, isarray=true), t), x)
-        # ∇ᵤf = ForwardDiff.jacobian(u -> f(problem, x, ODEParams(problem.model, u, isarray=true), t), u)
-        
-        # ∇ᵤf = ForwardDiff.jacobian((dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
+        ∇ₓf = ForwardDiff.jacobian(x -> problem.f(x, ODEParams(problem.model, u, isarray=true), t), x)
+        ∇ᵤf = ForwardDiff.jacobian(u -> problem.f(x, ODEParams(problem.model, u, isarray=true), t), u)
         
         return ∇ₓf, ∇ᵤf
     else
-        ForwardDiff.jacobian!(∇ₓf, (dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
-        ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
-        
+        ∇ₓf = ForwardDiff.jacobian(x -> problem.f(x, ODEParams(problem.model, u, isarray=true), t), x)
+        ∇ᵤf = ForwardDiff.jacobian(u -> problem.f(x, ODEParams(problem.model, u, isarray=true), t), u)
+        ∇ₓₓf = zeros(x_dim, x_dim, x_dim)
+        ∇ₓᵤf = zeros(x_dim, x_dim, u_dim)
+        ∇ᵤᵤf = zeros(x_dim, u_dim, u_dim)
         # ∇ₓₓf = x_hessian(problem, x, u, t)
         # ∇ₓᵤf = xu_hessian(problem, x, u, t)
         # ∇ᵤᵤf = u_hessian(problem, x, u, t)
@@ -366,43 +363,43 @@ Returns one step of runge-kutta ode step with fixed time length
 
 """
 function rk4_step(
-    f!::Function,
+    f::Function,
     x::Vector{Float64},
-    p::AbstractParameter,
+    p::ODEParams,
     t::Float64;
     h::Float64=model.dt,
 )
     # dx = zeros(size(x,1))
-    k1 = f!(zeros(size(x,1)), x, p, t+0.0)
-    k2 = f!(zeros(size(x,1)), x + h / 2.0 * k1, p, t + h / 2.0)
-    k3 = f!(zeros(size(x,1)), x + h / 2.0 * k2, p, t + h / 2.0)
-    k4 = f!(zeros(size(x,1)), x + h * k3, p, t + h)
+    k1 = f(x, p, t+0.0)
+    k2 = f(x + h / 2.0 * k1, p, t + h / 2.0)
+    k3 = f(x + h / 2.0 * k2, p, t + h / 2.0)
+    k4 = f(x + h * k3, p, t + h)
     return (k1 + 2 * k2 + 2 * k3 + k4)/6
 end
 
 
 function rk2_step(
-    f!::Function,
+    f::Function,
     x::Vector{Float64},
-    p::AbstractParameter,
+    p::ODEParams,
     t::Float64;
     h::Float64=model.dt,
 )
     dx = zeros(size(x,1))
-    k1 = f!(dx, x, p, t+0.0)
-    k2 = f!(dx, x + h * k1, p, t + h)
+    k1 = f(x, p, t+0.0)
+    k2 = f(x + h * k1, p, t + h)
     return (k1 + k2)/2
 end
 
 
 function euler_step(
-    f!::Function,
+    f::Function,
     x::Vector{Float64},
-    p::AbstractParameter,
+    p::ODEParams,
     t::Float64;
     h::Float64=model.dt,
 )
-    return f!(zeros(size(x,1)), x, p, t)
+    return f(x, p, t)
 end
 
 

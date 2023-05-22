@@ -8,7 +8,7 @@ using Random
 using Printf
 
 using DifferentialEquations
-using Interpolations
+using DataInterpolations
 
 # API
 export # type
@@ -17,7 +17,7 @@ export # type
     AbstractDDPProblem,
     DDPArrays,
     DDPSolutions,
-    Parameters
+    AbstractParameter
 include("./type_definition.jl")
 
 
