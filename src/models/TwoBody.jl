@@ -26,7 +26,7 @@ struct TwoBody <: AbstractDynamicsModel
     x_final::Vector{Float64}
 
     # function storage
-    f!::Function # dynamic equation of motion without noise
+    f::Function # dynamic equation of motion without noise
 
     # dynamics parameters
     μ::Float64 # orbital rate
@@ -68,7 +68,7 @@ function TwoBody()
     TwoBody(x_dim, u_dim, tN, tf, dt, x_init, x_final, f!, μ, T_max, m_dot)
 end
 
-function f!(dx,x,p,t)
+function f!(x,p,t)
     # necessary begin =>
     model = p.model
     δx = zeros(size(x,1))
@@ -90,9 +90,11 @@ function f!(dx,x,p,t)
     m_dot = model.m_dot
     r = norm(x[1:3])
  
-    dx[1:3] = x[4:6]
-    dx[4:6] = -μ/r^3 * x[1:3] + T_max/x[7] * u
-    dx[7] = -norm(u)*m_dot
-        
+    dx = [
+        x[4:6]
+        -μ/r^3 * x[1:3] + T_max/x[7] * u
+        -norm(u)*m_dot
+    ]
+
     return dx
 end
