@@ -354,13 +354,20 @@ function backward_pass_cddp!(
     V = copy(ϕ)
     ∇ₓV = copy(∇ₓϕ)
     ∇ₓₓV = copy(∇ₓₓϕ)
+    
+    push!(l_arr, zeros(prob.u_dim))
+    push!(L_arr, zeros(prob.u_dim, prob.x_dim))
+    push!(m_arr, zeros(prob.λ_dim))
+    push!(M_arr, zeros(prob.λ_dim, prob.x_dim))
+    push!(n_arr, zeros(prob.λ_dim))
+    push!(N_arr, zeros(prob.λ_dim, prob.x_dim))    
 
     # backward pass
     for k in length(ell_arr):-1:1
         t = k * dt
         x, u, λ, y = X(t), U(t), Λ(t), Y(t)
 
-        Q = ell_arr[k] + V
+        # Q = ell_arr[k] + V
         ∇ₓQ = ∇ₓell_arr[k] + ∇ₓf_arr[k]' * ∇ₓV
         ∇ᵤQ = ∇ᵤell_arr[k] + ∇ᵤf_arr[k]' * ∇ₓV
 
@@ -407,7 +414,7 @@ function backward_pass_cddp!(
             M = Diag_cInv_Diag_λ * (∇λₓQ + ∇λᵤQ * L)
 
             # update values of gradient and hessian of the value function
-            V += 0.5 * l' * ∇ᵤᵤQ * l + l' * ∇ᵤQ
+            # V += 0.5 * l' * ∇ᵤᵤQ * l + l' * ∇ᵤQ
             ∇ₓV = ∇ₓQ + L' * ∇ᵤQ + L' * ∇ᵤᵤQ * l + ∇ₓᵤQ * l
             ∇ₓₓV = ∇ₓₓQ + L' * ∇ₓᵤQ' + ∇ₓᵤQ * L + L' * ∇ᵤᵤQ * L
 
@@ -461,10 +468,10 @@ function backward_pass_cddp!(
 
     l_func = ConstantInterpolation(reverse(l_arr), 0:dt:tf)
     L_func = ConstantInterpolation(reverse(L_arr), 0:dt:tf)
-    m_func = ConstantInterpolation(reverse(l_arr), 0:dt:tf)
-    M_func = ConstantInterpolation(reverse(L_arr), 0:dt:tf)
-    n_func = ConstantInterpolation(reverse(l_arr), 0:dt:tf)
-    N_func = ConstantInterpolation(reverse(L_arr), 0:dt:tf)
+    m_func = ConstantInterpolation(reverse(m_arr), 0:dt:tf)
+    M_func = ConstantInterpolation(reverse(M_arr), 0:dt:tf)
+    n_func = ConstantInterpolation(reverse(n_arr), 0:dt:tf)
+    N_func = ConstantInterpolation(reverse(N_arr), 0:dt:tf)
     sol.gains.l = l_func
     sol.gains.L = L_func
     sol.gains.m = m_func

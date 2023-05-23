@@ -146,7 +146,7 @@ function forward_pass_cddp!(
 
             # propagate the next state
             p = ODEParams(prob.model, u_new, isarray=true)
-            x_new += rk4_step(prob.f!, x_new, p, t, h=dt) * dt
+            x_new += rk4_step(prob.f, x_new, p, t, h=dt) * dt
 
             # save new trajectory
             push!(X_new, x_new)

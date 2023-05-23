@@ -32,6 +32,37 @@ struct iLQRProblem <: AbstractDDPProblem
     x_final::Vector{Float64} # terminal state
 
     X_ref # reference trajectory
+    function iLQRProblem(;
+        model::AbstractDynamicsModel,
+        tf::Float64=model.tf,
+        tN::Int64=model.tN,
+        dt::Float64=model.dt,
+        x_dim = model.x_dim,
+        u_dim = model.u_dim,
+        ell::Function=model.ell,
+        ϕ::Function=model.ϕ,
+        f::Function=model.f,
+        ∇f::Function=model.∇f,
+        x_init::Vector{Float64}=model.x_init,
+        x_final::Vector{Float64}=model.x_final,
+        X_ref=nothing,
+        ) 
+        new(
+            model,
+            tf,
+            tN,
+            dt,
+            x_dim,
+            u_dim,
+            ell,
+            ϕ,
+            f,
+            ∇f,
+            x_init,
+            x_final,
+            X_ref
+        )
+    end
 end
 
 struct DDPProblem <: AbstractDDPProblem
@@ -59,6 +90,37 @@ struct DDPProblem <: AbstractDDPProblem
     x_final::Vector{Float64} # terminal state
 
     X_ref # reference trajectory
+    function DDPProblem(;
+        model::AbstractDynamicsModel,
+        tf::Float64=model.tf,
+        tN::Int64=model.tN,
+        dt::Float64=model.dt,
+        x_dim = model.x_dim,
+        u_dim = model.u_dim,
+        ell::Function=model.ell,
+        ϕ::Function=model.ϕ,
+        f::Function=model.f,
+        ∇f::Function=model.∇f,
+        x_init::Vector{Float64}=model.x_init,
+        x_final::Vector{Float64}=model.x_final,
+        X_ref=nothing,
+        ) 
+        new(
+            model,
+            tf,
+            tN,
+            dt,
+            x_dim,
+            u_dim,
+            ell,
+            ϕ,
+            f,
+            ∇f,
+            x_init,
+            x_final,
+            X_ref
+        )
+    end
 end
 
 struct CDDPProblem <: AbstractDDPProblem
@@ -91,6 +153,43 @@ struct CDDPProblem <: AbstractDDPProblem
     c_final::Function # termianl constraint function
 
     X_ref # reference trajectory
+    function CDDPProblem(;
+        model::AbstractDynamicsModel,
+        tf::Float64=model.tf,
+        tN::Int64=model.tN,
+        dt::Float64=model.dt,
+        x_dim = model.x_dim,
+        u_dim = model.u_dim,
+        λ_dim = model.λ_dim,
+        ell::Function=model.ell,
+        ϕ::Function=model.ϕ,
+        f::Function=model.f,
+        ∇f::Function=model.∇f,
+        x_init::Vector{Float64}=model.x_init,
+        x_final::Vector{Float64}=model.x_final,
+        c::Function=model.c,
+        c_final::Function=model.c_final,  
+        X_ref=nothing,
+        ) 
+        new(
+            model,
+            tf,
+            tN,
+            dt,
+            x_dim,
+            u_dim,
+            λ_dim,
+            ell,
+            ϕ,
+            f,
+            ∇f,
+            x_init,
+            x_final,
+            c,
+            c_final,
+            X_ref
+        )
+    end
 end
 
 

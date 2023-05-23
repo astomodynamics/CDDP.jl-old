@@ -36,9 +36,9 @@ struct HCW <: AbstractDynamicsModel
     uMin::Float64
 
     # function storage
-    f!::Function # dynamic equation of motion without noise
-    F!::Function # noise map function
-    h!::Function # observation function
+    f::Function # dynamic equation of motion without noise
+    F::Function # noise map function
+    h::Function # observation function
 
     # dynamics parameters
     ω::Float64 # orbital rate
@@ -103,9 +103,9 @@ struct HCW <: AbstractDynamicsModel
             xMin,
             uMax,
             uMin,
-            f!,
-            F!,
-            h!,
+            f,
+            F,
+            h,
             ω,
             variance,
             distribution,
@@ -124,7 +124,7 @@ The dynamic equation of motion.
 - `p`: parameter arguments
 - `t`: time
 """
-function f!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
+function f(x::Vector, p::ODEParams, t::Float64)
     # necessary begin =>
     model = p.model
     δx = zeros(size(x,1))
@@ -152,51 +152,44 @@ function f!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
         x[4:6] * v_scale
     ]
 
-    dx[1] = x[4] / r_scale
-    dx[2] = x[5] / r_scale
-    dx[3] = x[6] / r_scale
-    dx[4] = (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
-    dx[5] = -2*ω*x[4] / v_scale + u[2]
-    dx[6] = -ω^2*x[3] / v_scale + u[3]
+    dx = [
+        x[4] / r_scale
+        x[5] / r_scale
+        x[6] / r_scale
+        (3*ω^2*x[1] + 2*ω*x[5]) / v_scale + u[1]
+        -2*ω*x[4] / v_scale + u[2]
+        -ω^2*x[3] / v_scale + u[3]
+    ]
     
     """<<< edit end """
-
     return dx
 end
 
-function F!(dx::Vector, x::Vector, p::ODEParams, t::Float64)
+function F(x::Vector, p::ODEParams, t::Float64)
     model = p.model
     std = sqrt(model.variance)
 
-    if !p.isarray
-        """ edit here >>>"""
-        dx[1] = std * 1.0
-        dx[2] = std * 1.0
-        dx[3] = std * 1.0
-        dx[4] = std * 1.0
-        dx[5] = std * 1.0
-        dx[6] = std * 1.0
-        """<<< edit end """
-    else
-        """ edit here >>>"""
-        dx = std * [
-            1.0
-            1.0
-            1.0
-            1.0
-            1.0
-            1.0
-        ]
-        """<<< edit end """
-        return dx
-    end
+    
+    """ edit here >>>"""
+    dx = std * [
+        1.0
+        1.0
+        1.0
+        1.0
+        1.0
+        1.0
+    ]
+    """<<< edit end """
+    return dx
 end
 
 
 
-function h!(y::Vector, x::Vector, t::Float64)
-    y[1] = norm(x[1:3])
-    y[2] = atan(x[1]/x[2])
-    y[3] = atan(x[3]/norm(x[1:2]))
+function h(x::Vector, t::Float64)
+    y = [
+        norm(x[1:3])
+        atan(x[1]/x[2])
+        atan(x[3]/norm(x[1:2]))
+    ]
     return y
 end

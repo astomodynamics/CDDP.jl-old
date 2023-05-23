@@ -255,15 +255,15 @@ function solve_cddp(
     max_ite::Int64=10,
     tol::Float64=1e-6,
     max_exe_time=200,
-    reg_param1=1e-4,
-    reg_param2=1e-2,
-    reg_param1_fact=10,
-    reg_param2_fact=10,
-    reg_param1_lb=1e-12,
-    reg_param2_lb=1e-12,
-    reg_param1_ub=1e+2,
-    reg_param2_ub=1e+2,
-    line_search_steps=5 .^ LinRange(0, -5, 30),
+    reg_param_x=1e-2,
+    reg_param_u=1e-2,
+    reg_param_x_fact=10,
+    reg_param_u_fact=10,
+    reg_param_x_lb=1e-12,
+    reg_param_u_lb=1e-12,
+    reg_param_x_ub=1e+2,
+    reg_param_u_ub=1e+2,
+    line_search_steps=5 .^ LinRange(0, -6, 30),
     μip=1e-6,
     μip_lb=1e-12,
     isfeasible=false,
@@ -280,14 +280,14 @@ function solve_cddp(
                 **************************************************************************************\n")
     end
     ddp_params = CDDPParameter(
-        reg_param1,
-        reg_param2,
-        reg_param1_fact,
-        reg_param2_fact,
-        reg_param1_lb,
-        reg_param2_lb,
-        reg_param1_ub,
-        reg_param2_ub,
+        reg_param_x,
+        reg_param_u,
+        reg_param_x_fact,
+        reg_param_u_fact,
+        reg_param_x_lb,
+        reg_param_u_lb,
+        reg_param_x_ub,
+        reg_param_u_ub,
         line_search_steps,
         μip,
         μip_lb,
@@ -316,12 +316,13 @@ function solve_cddp(
     
     for k in 0:prob.tN
         t = k * prob.dt
-        if isfeasible
-            λ = zeros(prob.λ_dim) 
-            y = zeros(prob.λ_dim) 
-        else
-            λ = 5e+0 * ones(prob.λ_dim)
-            y = 1e+0 * ones(prob.λ_dim)
+
+        λ = zeros(prob.λ_dim) 
+        y = zeros(prob.λ_dim) 
+            
+        if !isfeasible
+            λ += 5e+0 * ones(prob.λ_dim)
+            y += 1e+0 * ones(prob.λ_dim)
         end
         
         push!(Λ_arr, λ)
