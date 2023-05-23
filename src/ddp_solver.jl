@@ -103,9 +103,11 @@ function solve_ilqr(
     )
 
     if isequal(X, nothing)
-        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f =prob.f, randomize=false)
-    elseif isequal(X, nothing) && isequal(U, nothing)
-        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.tN, f=prob.f)
+        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+    elseif isequal(X, nothing) && !isequal(U, nothing)
+        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f)
+    elseif isequal(U,nothing)
+        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
     end
 
     J = get_trajectory_cost(X, U, prob.X_ref, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
@@ -193,8 +195,10 @@ function solve_ddp(
 
     if isequal(X, nothing)
         X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
-    elseif isequal(X, nothing) && isequal(U, nothing)
-        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.tN, f=prob.f)
+    elseif isequal(X, nothing) && !isequal(U, nothing)
+        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f)
+    elseif isequal(U,nothing)
+        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
     end
     
     J = get_trajectory_cost(X, U, prob.X_ref, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
@@ -243,140 +247,139 @@ function solve_ddp(
 end
 
 
-# """
-#     solve_cddp(prob, args)
-# """
-# function solve_cddp(
-#     prob::AbstractDDPProblem;
-#     max_ite::Int64=10,
-#     tol::Float64=1e-6,
-#     max_exe_time=200,
-#     reg_param1=1e-4,
-#     reg_param2=1e-2,
-#     reg_param1_fact=10,
-#     reg_param2_fact=10,
-#     reg_param1_lb=1e-12,
-#     reg_param2_lb=1e-12,
-#     reg_param1_ub=1e+2,
-#     reg_param2_ub=1e+2,
-#     line_search_steps=5 .^ LinRange(0, -5, 30),
-#     μip=1e-6,
-#     μip_lb=1e-12,
-#     isfeasible=false,
-#     X=nothing,
-#     U=nothing,
-#     Λ=nothing,
-#     randomize=false,
-#     isilqr=false,
-#     verbose=true,
-# )
-#     if verbose
-#         @printf("**************************************************************************************\n\
-#                 >>> Start CDDP Problem Solver \n\
-#                 **************************************************************************************\n")
-#     end
-#     ddp_params = CDDPParameter(
-#         reg_param1,
-#         reg_param2,
-#         reg_param1_fact,
-#         reg_param2_fact,
-#         reg_param1_lb,
-#         reg_param2_lb,
-#         reg_param1_ub,
-#         reg_param2_ub,
-#         line_search_steps,
-#         μip,
-#         μip_lb,
-#         false,
-#     )
+"""
+    solve_cddp(prob, args)
+"""
+function solve_cddp(
+    prob::AbstractDDPProblem;
+    max_ite::Int64=10,
+    tol::Float64=1e-6,
+    max_exe_time=200,
+    reg_param1=1e-4,
+    reg_param2=1e-2,
+    reg_param1_fact=10,
+    reg_param2_fact=10,
+    reg_param1_lb=1e-12,
+    reg_param2_lb=1e-12,
+    reg_param1_ub=1e+2,
+    reg_param2_ub=1e+2,
+    line_search_steps=5 .^ LinRange(0, -5, 30),
+    μip=1e-6,
+    μip_lb=1e-12,
+    isfeasible=false,
+    X=nothing,
+    U=nothing,
+    Λ=nothing,
+    randomize=false,
+    isilqr=false,
+    verbose=true,
+)
+    if verbose
+        @printf("**************************************************************************************\n\
+                >>> Start CDDP Problem Solver \n\
+                **************************************************************************************\n")
+    end
+    ddp_params = CDDPParameter(
+        reg_param1,
+        reg_param2,
+        reg_param1_fact,
+        reg_param2_fact,
+        reg_param1_lb,
+        reg_param2_lb,
+        reg_param1_ub,
+        reg_param2_ub,
+        line_search_steps,
+        μip,
+        μip_lb,
+        false,
+    )
 
-#     if isequal(X, nothing)
-#         X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f! =prob.f!, randomize=false)
-#     elseif isequal(X, nothing) && !isequal(U, nothing)
-#         X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f! =prob.f!)
-#     elseif isequal(U,nothing)
-#         _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f! =prob.f!, randomize=false)
-#     end
+    if isequal(X, nothing)
+        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+    elseif isequal(X, nothing) && !isequal(U, nothing)
+        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f)
+    elseif isequal(U,nothing)
+        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+    end
     
-#     J = get_trajectory_cost(X, U, nothing, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
-#     J_old = Inf
-#     ddp_params.μip = μip 
-#     isfeasible = get_feasibility(prob, X, U)
-#     ddp_params.isfeasible = isfeasible
-#     if isfeasible 
-#         ddp_params.μip = 1e-8
-#     end
-#     println("isfeasible: ", isfeasible)
-#     Λ_arr::Vector{Vector{Float64}} = Vector[]
-#     Y_arr::Vector{Vector{Float64}} = Vector[]
+    J = get_trajectory_cost(X, U, nothing, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
+    J_old = Inf
+    ddp_params.μip = μip 
+    isfeasible = get_feasibility(prob, X, U)
+    ddp_params.isfeasible = isfeasible
+    if isfeasible 
+        ddp_params.μip = 1e-8
+    end
+    println("isfeasible: ", isfeasible)
+    Λ_arr::Vector{Vector{Float64}} = Vector[]
+    Y_arr::Vector{Vector{Float64}} = Vector[]
     
-#     for k in 0:prob.tN
-#         t = k * prob.dt
-#         if isfeasible
-#             λ = zeros(prob.λ_dim) 
-#             y = zeros(prob.λ_dim) 
-#         else
-#             λ = 5e+0 * ones(prob.λ_dim)
-#             y = 1e+0 * ones(prob.λ_dim)
-#         end
+    for k in 0:prob.tN
+        t = k * prob.dt
+        if isfeasible
+            λ = zeros(prob.λ_dim) 
+            y = zeros(prob.λ_dim) 
+        else
+            λ = 5e+0 * ones(prob.λ_dim)
+            y = 1e+0 * ones(prob.λ_dim)
+        end
         
-#         push!(Λ_arr, λ)
-#         push!(Y_arr, y)
-#     end
+        push!(Λ_arr, λ)
+        push!(Y_arr, y)
+    end
     
-#     Λ = linear_interpolation((collect(LinRange(0.0, prob.tf, prob.tN+1)),), reverse(Λ_arr), extrapolation_bc = Line())
-#     Y = linear_interpolation((collect(LinRange(0.0, prob.tf, prob.tN+1)),), reverse(Y_arr), extrapolation_bc = Line())
+    Λ = ConstantInterpolation(Λ_arr, 0:prob.dt:prob.tf)
+    Y = ConstantInterpolation(Y_arr, 0:prob.dt:prob.tf)    
 
-#     gains = CDDPGain([], [], [], [], [], [])
-#     sol = CDDPSolution(X, U, Λ, Y, J, gains)
+    gains = CDDPGain([], [], [], [], [], [])
+    sol = CDDPSolution(X, U, Λ, Y, J, gains)
 
-#     J = Inf
-#     J_old = Inf
+    J = Inf
+    J_old = Inf
     
-#     success, ite = false, 0
-#     t_init = time()
+    success, ite = false, 0
+    t_init = time()
 
-#     while (ite < max_ite) && !(success && abs(J_old - J)/J < tol)
-#         if time() - t_init > max_exe_time
-#             @printf("Maximum computation time passed!!!")
-#             break
-#         end
+    while (ite < max_ite) && !(success && abs(J_old - J)/J < tol)
+        if time() - t_init > max_exe_time
+            @printf("Maximum computation time passed!!!")
+            break
+        end
 
-#         if verbose
-#             if (mod(ite, 10) == 0)
-#                 @printf("\
-#                 iter    objective   inf_pr     inf_du   lg(mu)   |d|   lg(rg)  alpha_du   alpha_pr   ls
-#                 \n")
-#             end
-#                 @printf("\
-#                   %d       %.6f,  
-#                 \n", ite, J)
-#         end
+        if verbose
+            if (mod(ite, 10) == 0)
+                @printf("\
+                iter    objective   inf_pr     inf_du   lg(mu)   |d|   lg(rg)  alpha_du   alpha_pr   ls
+                \n")
+            end
+                @printf("\
+                  %d       %.6f,  
+                \n", ite, J)
+        end
 
-#         backward_pass_cddp!(sol, prob, ddp_params)
-#         forward_pass_cddp!(sol, prob, ddp_params)
+        backward_pass_cddp!(sol, prob, ddp_params)
+        forward_pass_cddp!(sol, prob, ddp_params)
 
-#         if sol.J < J
-#             # find better solution trajectory
-#             sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f! =prob.f!)
-#             J_old = copy(J)
-#             J = copy(sol.J)
-#             success = true
+        if sol.J < J
+            # find better solution trajectory
+            sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f=prob.f)
+            J_old = copy(J)
+            J = copy(sol.J)
+            success = true
 
-#             ddp_params_update!(ddp_params, reg1=true, reg2=true, pert=true, descend=true)
-#         else
-#             ddp_params_update!(ddp_params, reg1=true, reg2=true, pert=false, descend=false)
-#         end
+            ddp_params_update!(ddp_params, reg1=true, reg2=true, pert=true, descend=true)
+        else
+            ddp_params_update!(ddp_params, reg1=true, reg2=true, pert=false, descend=false)
+        end
         
-#         ite += 1
-#     end
+        ite += 1
+    end
 
-#     sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f! =prob.f!)
-#     if verbose
-#         @printf("**************************************************************************************\n\
-#              >>> Successfully Finished CDDP Problem Solver <<< \n\
-#             **************************************************************************************\n")
-#     end
+    if verbose
+        @printf("**************************************************************************************\n\
+             >>> Successfully Finished CDDP Problem Solver <<< \n\
+            **************************************************************************************\n")
+    end
     
-#     return sol
-# end
+    return sol
+end
