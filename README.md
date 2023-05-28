@@ -14,7 +14,14 @@ julia> ]
 ```
 
 ## Examples
-1. Linear spacecraft relative motion control
+1. Inverted swing-up control
+3. Cartpole swing-up control
+4. Cartpole swing-up model predictive control (MPC)
+5. Linear spacecraft relative motion control
+6. Linear spacecraft relative motion model predictive control (MPC)
+7. Nonlinear spacecraft relative motion control
+8. Nonlinear spacecraft relative motion model predictive control (MPC)
+9. Two-body dynamics trajectory optimization
 
 ## References
 1. Pavlov, A., Shames, I., and Manzie, C. “Interior Point Differential Dynamic Programming.” IEEE Transactions on Control Systems Technology, Vol. 29, No. 6, 2021, pp. 2720–2727. https://doi.org/10.1109/tcst.2021.3049416.
