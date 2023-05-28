@@ -480,3 +480,9 @@ function backward_pass_cddp!(
     sol.gains.N = N_func
     nothing
 end
+
+
+function backward_pass_ilqg!()
+    nothing
+end
+

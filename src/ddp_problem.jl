@@ -91,7 +91,7 @@ struct DDPProblem <: AbstractDDPProblem
 
     X_ref # reference trajectory
     function DDPProblem(;
-        model::AbstractDynamicsModel,
+        model::AbstractDynamicsModel=model,
         tf::Float64=model.tf,
         tN::Int64=model.tN,
         dt::Float64=model.dt,

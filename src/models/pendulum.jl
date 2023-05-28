@@ -27,6 +27,9 @@ struct Pendulum <: AbstractDynamicsModel
 
     # function storage
     f!::Function # dynamic equation of motion without noise
+    ∇f::Function # Jacobian of the dynamic equation of motion
+    G:: Function # noise matrix
+    ∇G::Function # Jacobian of the noise matrix
 
     # dynamics constants
     m::Float64
@@ -134,4 +137,17 @@ function f!(dx::Vector, x::Vector, p::AbstractParameter, t::Float64)
     
     """<<< edit ends """
     return dx
+end
+
+function ∇f()
+    nothing
+end
+
+
+function G()
+    nothing
+end
+
+function ∇G()
+    nothing
 end
