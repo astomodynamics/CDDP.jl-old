@@ -20,7 +20,6 @@ julia> ]
 5. Linear spacecraft relative motion control
 6. Linear spacecraft relative motion model predictive control (MPC)
 7. Nonlinear spacecraft relative motion control
-8. Nonlinear spacecraft relative motion model predictive control (MPC)
 9. Two-body dynamics trajectory optimization
 
 ## References
