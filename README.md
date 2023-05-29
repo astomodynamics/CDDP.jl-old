@@ -14,17 +14,17 @@ julia> ]
 ```
 
 ## Examples
-1. ~~Inverted pendulum swing-up control
+1. ~~Inverted pendulum swing-up control~~
 3. Cartpole swing-up control
 4. Cartpole swing-up model predictive control (MPC)
-5. ~~Unicycle car control
-6. ~~Two-dimensional car control
-7. ~~Linear spacecraft relative motion control
-8. ~~Linear spacecraft relative motion model predictive control (MPC)
-9. ~~Nonlinear spacecraft relative motion control
-10. ~~Two-body dynamics trajectory optimization
-11. ~~Double inverted pendulum on cart control
-12. ~~Rocket landing control
+5. ~~Unicycle car control~~
+6. ~~Two-dimensional car control~~
+7. ~~Linear spacecraft relative motion control~~
+8. ~~Linear spacecraft relative motion model predictive control (MPC)~~
+9. ~~Nonlinear spacecraft relative motion control~~
+10. ~~Two-body dynamics trajectory optimization~~
+11. ~~Double inverted pendulum on cart control~~
+12. ~~Rocket landing control~~
 
 ## References
 1. Pavlov, A., Shames, I., and Manzie, C. “Interior Point Differential Dynamic Programming.” IEEE Transactions on Control Systems Technology, Vol. 29, No. 6, 2021, pp. 2720–2727. https://doi.org/10.1109/tcst.2021.3049416.
