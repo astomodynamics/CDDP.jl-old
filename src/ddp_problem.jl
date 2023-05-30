@@ -7,63 +7,6 @@
 ################################################################################
 
 
-struct iLQRProblem <: AbstractDDPProblem
-    model::AbstractDynamicsModel
-
-    # problem setting
-    tf::Float64 # final time 
-    tN::Int64 # number of discretization steps
-    dt::Float64 # discretization step-size
-
-    # dimensions
-    x_dim::Int64 # state dimension
-    u_dim::Int64 # control dimension
-
-    # cost objective
-    ell::Function # instantaneous cost function (running cost function)
-    ϕ::Function # terminal cost function
-
-    # dynamics
-    f::Function # dynamics model function
-    ∇f::Function # derivative of dynamics
-
-    # boundary conditions
-    x_init::Vector{Float64} # initial state 
-    x_final::Vector{Float64} # terminal state
-
-    X_ref # reference trajectory
-    function iLQRProblem(;
-        model::AbstractDynamicsModel,
-        tf::Float64=model.tf,
-        tN::Int64=model.tN,
-        dt::Float64=model.dt,
-        x_dim = model.x_dim,
-        u_dim = model.u_dim,
-        ell::Function=model.ell,
-        ϕ::Function=model.ϕ,
-        f::Function=model.f,
-        ∇f::Function=model.∇f,
-        x_init::Vector{Float64}=model.x_init,
-        x_final::Vector{Float64}=model.x_final,
-        X_ref=nothing,
-        ) 
-        new(
-            model,
-            tf,
-            tN,
-            dt,
-            x_dim,
-            u_dim,
-            ell,
-            ϕ,
-            f,
-            ∇f,
-            x_init,
-            x_final,
-            X_ref
-        )
-    end
-end
 
 struct DDPProblem <: AbstractDDPProblem
     model::AbstractDynamicsModel
@@ -74,35 +17,30 @@ struct DDPProblem <: AbstractDDPProblem
     dt::Float64 # discretization step-size
 
     # dimensions
-    x_dim::Int64 # state dimension
-    u_dim::Int64 # control dimension
+    dims::ModelDimension # model dimensions
 
     # cost objective
-    ell::Function # instantaneous cost function (running cost function)
-    ϕ::Function # terminal cost function
+    cost_funcs::CostFunction # cost functions
 
     # dynamics
-    f::Function # dynamics model function
-    ∇f::Function # derivative of dynamics
+    dyn_funcs::DynamicsFunction # dynamics model function
 
     # boundary conditions
     x_init::Vector{Float64} # initial state 
     x_final::Vector{Float64} # terminal state
 
     X_ref # reference trajectory
+
     function DDPProblem(;
-        model::AbstractDynamicsModel=model,
-        tf::Float64=model.tf,
-        tN::Int64=model.tN,
-        dt::Float64=model.dt,
-        x_dim = model.x_dim,
-        u_dim = model.u_dim,
-        ell::Function=model.ell,
-        ϕ::Function=model.ϕ,
-        f::Function=model.f,
-        ∇f::Function=model.∇f,
-        x_init::Vector{Float64}=model.x_init,
-        x_final::Vector{Float64}=model.x_final,
+        model,
+        tf=model.tf,
+        tN=model.tN,
+        dt=model.dt,
+        dims=model.dims,
+        cost_funcs=empty,
+        dyn_funcs=empty,
+        x_init=model.x_init,
+        x_final=model.x_final,
         X_ref=nothing,
         ) 
         new(
@@ -110,18 +48,16 @@ struct DDPProblem <: AbstractDDPProblem
             tf,
             tN,
             dt,
-            x_dim,
-            u_dim,
-            ell,
-            ϕ,
-            f,
-            ∇f,
+            dims,
+            cost_funcs,
+            dyn_funcs,
             x_init,
             x_final,
             X_ref
         )
     end
 end
+
 
 struct CDDPProblem <: AbstractDDPProblem
     model::AbstractDynamicsModel
@@ -192,33 +128,34 @@ struct CDDPProblem <: AbstractDDPProblem
     end
 end
 
+mutable struct DDPGain <: AbstractDDPGain
+    l # feedforward gain for x
+    L # feedback gain for x
+end
 
-mutable struct DDPSolution <: DDPSolutions
+mutable struct CDDPGain <: AbstractDDPGain
+    l # feedforward gain for x
+    L # feedback gain for x
+    m # coefficients for λ
+    M # coefficients for λ
+    n # coefficients for y
+    N # coefficients for y
+end
+
+mutable struct DDPSolution <: AbstractDDPSolution
     X # X trajectory storage
     U # U trajectory storage
     J::Float64 # cost storage
-    gains::DDPArrays
+    gains::DDPGain
 end
 
-mutable struct CDDPSolution <: DDPSolutions
+mutable struct CDDPSolution <: AbstractDDPSolution
     X # X trajectory storage
     U # U trajectory storage
     Λ # λ trajectory storage
     Y # y trajectory storage
     J::Float64 # cost storage
-    gains::DDPArrays
+    gains::CDDPGain
 end
 
-mutable struct DDPGain <: DDPArrays
-    l # feedforward gain for x
-    L # feedback gain for x
-end
 
-mutable struct CDDPGain <: DDPArrays
-    l # feedforward gain for x
-    L # feedback gain for x
-    m # coefficients for y
-    M # coefficients for y
-    n # coefficients for y
-    N # coefficients for y
-end

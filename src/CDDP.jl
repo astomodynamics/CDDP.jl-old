@@ -15,45 +15,22 @@ export # type
     AbstractDynamicsModel,
     AbstractObservationModel,
     AbstractDDPProblem,
-    DDPArrays,
-    DDPSolutions,
-    AbstractParameter
+    AbstractDDOFunction,
+    AbstractDDPArray,
+    AbstractDDPSolution,
+    AbstractDDPParameter
 include("./type_definition.jl")
 
 
-# ddp problems
-export 
-    iLQRProblem,
-    DDPProblem,
-    CDDPProblem,
-    DDPGain
-include("./ddp_problem.jl")
-
-# ddp solvers
-export 
-    solve_ilqr,
-    solve_ddp,
-    solve_cddp
-include("./ddp_solver.jl")
-
-
-# backward pass functions
-export
-    backward_pass_ilqr!,
-    backward_pass_ddp!,
-    backward_pass_cddp!
-include("./backward_pass.jl")
-
-# forward pass functions
-export 
-    forward_pass_ilqr!,
-    forward_pass_ddp!,
-    forward_pass_cddp!
-include("./forward_pass.jl")
-
 # helper functions
 export 
-    ODEParams,
+    ODEParameter,
+    ModelDimension,
+    CostFunction,
+    DynamicsFunction,
+    ConstraintFunction,
+    get_dims,
+    get_ode_input,
     initialize_trajectory,
     simulate_trajectory,
     get_ode_derivatives,
@@ -64,9 +41,43 @@ export
     rk4_step,
     rk2_step,
     euler_step,
+    get_continuous_dynamics,
+    get_discrete_dynamics,
     get_feasibility,
     get_trajectory_cost,
     get_trajectory_log_cost
 include("./helper.jl")
+
+# ddp problems
+export 
+    DDPProblem,
+    CDDPProblem,
+    DDPGain
+include("./ddp_problem.jl")
+
+# ddp solvers
+export 
+    solve_ddp,
+    solve_cddp
+include("./ddp_solver.jl")
+
+
+# backward pass functions
+export
+    backward_pass_ddp!,
+    backward_pass_cddp!
+include("./backward_pass.jl")
+
+# forward pass functions
+export 
+    forward_pass_ddp!,
+    forward_pass_cddp!
+include("./forward_pass.jl")
+
+# visualization
+export
+    make_gif
+include("./animate.jl")
+
 
 end # module CDDP
