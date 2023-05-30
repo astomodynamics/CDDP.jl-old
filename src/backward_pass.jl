@@ -1,132 +1,17 @@
-"""
-    backward_pass_ilqr()
-"""
-function backward_pass_ilqr!(
-    sol::DDPSolutions,
-    prob::iLQRProblem,
-    params::DDPParameter,
-)
-    X, U = sol.X, sol.U
-    tf, dt, tN = prob.tf, prob.dt, prob.tN
-    reg_param_x = params.reg_param_x
-    reg_param_u = params.reg_param_u
-
-    # initialize arrays for backward pass
-    ∇ₓf_arr::Vector{Matrix{Float64}} = Vector[]
-    ∇ᵤf_arr::Vector{Matrix{Float64}} = Vector[]
-
-    ell_arr::Vector{Float64} = Vector[]
-    ∇ₓell_arr::Vector{Vector{Float64}} = Vector[]
-    ∇ᵤell_arr::Vector{Vector{Float64}} = Vector[]
-    ∇ₓₓell_arr::Vector{Matrix{Float64}} = Vector[]
-    ∇ₓᵤell_arr::Vector{Matrix{Float64}} = Vector[]
-    ∇ᵤᵤell_arr::Vector{Matrix{Float64}} = Vector[]
-
-    l_arr::Vector{Vector{Float64}} = Vector[]
-    L_arr::Vector{Matrix{Float64}} = Vector[]
-
-    # store dynamics and cost information
-    for k in 0:tN-1
-        t = k * dt
-        x, u = X(t), U(t)
-
-        # get dynamics information
-        ∇ₓf, ∇ᵤf = nothing, nothing
-        if isequal(prob.∇f, empty)
-            ∇ₓf, ∇ᵤf = get_ode_derivatives(prob, x, u, t, isilqr=true)
-        else
-            ∇ₓf, ∇ᵤf = prob.∇f(x, u, t)
-        end
-
-        # store dynamics information
-        push!(∇ₓf_arr, I + ∇ₓf * dt)
-        push!(∇ᵤf_arr, ∇ᵤf * dt)
-
-        # get cost information
-        x_ref = nothing
-        if !isequal(prob.X_ref, nothing)
-            x_ref = prob.X_ref(t)
-        else
-            x_ref = zeros(size(x))
-        end
-
-        # get cost information
-        ell = prob.ell(x, u, x_ref)
-        ∇ₓell, ∇ᵤell, ∇ₓₓell, ∇ₓᵤell, ∇ᵤᵤell = get_instant_cost_derivatives(prob.ell, x, u, x_ref)
-
-        # store cost information
-        push!(ell_arr, ell*dt)
-        push!(∇ₓell_arr, ∇ₓell*dt)
-        push!(∇ᵤell_arr, ∇ᵤell*dt)
-        push!(∇ₓₓell_arr, ∇ₓₓell*dt)
-        push!(∇ₓᵤell_arr, ∇ₓᵤell*dt)
-        push!(∇ᵤᵤell_arr, ∇ᵤᵤell*dt)
-    end
-
-    ϕ = prob.ϕ(X(prob.tf), prob.x_final)
-    ∇ₓϕ, ∇ₓₓϕ = get_terminal_cost_derivatives(prob.ϕ, X(prob.tf), prob.x_final)
-
-    # value function and its derivatives
-    V = copy(ϕ)
-    ∇ₓV = copy(∇ₓϕ)
-    ∇ₓₓV = copy(∇ₓₓϕ)
-
-    push!(l_arr, zeros(prob.u_dim))
-    push!(L_arr, zeros(prob.u_dim, prob.x_dim))
-
-    # backward pass
-    for k in length(ell_arr):-1:1
-        # Q = ell_arr[k] + V
-        ∇ₓQ = ∇ₓell_arr[k] + ∇ₓf_arr[k]' * ∇ₓV
-        ∇ᵤQ = ∇ᵤell_arr[k] + ∇ᵤf_arr[k]' * ∇ₓV
-
-        ∇ₓₓQ = ∇ₓₓell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param_x * I) * ∇ₓf_arr[k]
-        ∇ₓᵤQ = ∇ₓᵤell_arr[k] + ∇ₓf_arr[k]' * (∇ₓₓV + reg_param_x * I) * ∇ᵤf_arr[k]
-        ∇ᵤᵤQ = ∇ᵤᵤell_arr[k] + ∇ᵤf_arr[k]' * (∇ₓₓV + reg_param_x * I) * ∇ᵤf_arr[k] + reg_param_u * I
-
-        gains_mat = -∇ᵤᵤQ \ [∇ᵤQ  ∇ₓᵤQ'] 
-        # gains_mat = nothing
-        # try
-        #     C = cholesky(Hermitian(∇ᵤᵤQ)) # Cholesky factorization for accelerating computation
-        #     U = C.U
-        #     gains_mat = -U \ (U' \ [∇ᵤQ ∇ₓᵤQ'])
-        #     # NOTE: the following operation is as fast as cholesky...
-        #     # M_gain = -∇ᵤᵤQ \ [∇ᵤQ  ∇ₓᵤQ'] 
-        # catch err
-        #     @printf("∇ᵤᵤQ matrix is not positive definite. Consider changing reglarization parameters")
-        #     @error "ERROR: " exception = (err, catch_backtrace())
-        # end
-
-        # compute feedback and feedforward gains
-        l = gains_mat[:, 1]
-        L = gains_mat[:, 2:end]
-
-        # update values of gradient and hessian of the value function
-        # V += 0.5 * l' * ∇ᵤᵤQ * l + l' * ∇ᵤQ
-        ∇ₓV = ∇ₓQ + L' * ∇ᵤQ + L' * ∇ᵤᵤQ * l + ∇ₓᵤQ * l
-        ∇ₓₓV = ∇ₓₓQ + L' * ∇ₓᵤQ' + ∇ₓᵤQ * L + L' * ∇ᵤᵤQ * L
-
-        # store feedforward and feedback gains
-        push!(l_arr, l)
-        push!(L_arr, L)
-    end
-    l_func = ConstantInterpolation(reverse(l_arr), 0:dt:tf)
-    L_func = ConstantInterpolation(reverse(L_arr), 0:dt:tf)
-    sol.gains.l = l_func
-    sol.gains.L = L_func
-end
-
 
 
 """
     backward_pass_ddp()
 """
 function backward_pass_ddp!(
-    sol::DDPSolutions,
-    prob::AbstractDDPProblem,
-    params::DDPParameter,
+    sol::DDPSolution,
+    prob::DDPProblem,
+    params::DDPParameter;
     isilqr::Bool=false,
+    interpolate=CubicSpline
 )
+    dyn_funcs = prob.dyn_funcs
+    cost_funcs = prob.cost_funcs
     X, U = sol.X, sol.U
     tf, dt, tN = prob.tf, prob.dt, prob.tN
     reg_param_x = params.reg_param_x
@@ -153,18 +38,22 @@ function backward_pass_ddp!(
     for k in 0:tN-1
         t = k * dt
         x, u = X(t), U(t)
+        x_ref = nothing
+
+        if !isequal(prob.X_ref, nothing)
+            x_ref = prob.X_ref(t)
+        end
 
         # get dynamics information
-        ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = nothing, nothing, nothing, nothing, nothing
-        if isequal(prob.∇f, empty)
+        if isequal(dyn_funcs.∇f, empty)
             if isilqr
-                ∇ₓf, ∇ᵤf = get_ode_derivatives(prob, x, u, t, isilqr=isilqr)
+                ∇ₓf, ∇ᵤf = get_ode_derivatives(prob, x, u, isilqr=isilqr)
     
                 # store dynamics information
                 push!(∇ₓf_arr, I + ∇ₓf * dt)
                 push!(∇ᵤf_arr, ∇ᵤf * dt)
             else
-                ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = get_ode_derivatives(prob, x, u, t, isilqr=isilqr)
+                ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = get_ode_derivatives(prob, x, u, isilqr=isilqr)
     
                 # store dynamics information
                 push!(∇ₓf_arr, I + ∇ₓf * dt)
@@ -174,14 +63,15 @@ function backward_pass_ddp!(
                 push!(∇ᵤᵤf_arr, ∇ᵤᵤf * dt)
             end
         else
-            if isilqr
-                ∇ₓf, ∇ᵤf = prob.∇f(x, u, t)
-    
-                # store dynamics information
-                push!(∇ₓf_arr, I + ∇ₓf * dt)
-                push!(∇ᵤf_arr, ∇ᵤf * dt)
-            else
-                ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = prob.∇f(x, u, t)
+            
+            ∇ₓf, ∇ᵤf = dyn_funcs.∇f(x, u, prob.model.params)
+
+            # store dynamics information
+            push!(∇ₓf_arr, I + ∇ₓf * dt)
+            push!(∇ᵤf_arr, ∇ᵤf * dt)
+
+            if !isilqr
+                ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = dyn_funcs.∇²f(x, u, prob.model.params)
     
                 # store dynamics information
                 push!(∇ₓf_arr, I + ∇ₓf * dt)
@@ -193,8 +83,15 @@ function backward_pass_ddp!(
         end
         
         # get cost information
-        ell = prob.ell(x, u, prob.x_final)
-        ∇ₓell, ∇ᵤell, ∇ₓₓell, ∇ₓᵤell, ∇ᵤᵤell = get_instant_cost_derivatives(prob.ell, x, u, prob.x_final)
+        ell = cost_funcs.ell(x, u, x_ref=x_ref)
+
+        if isequal(cost_funcs.∇ell, empty)
+            ∇ₓell, ∇ᵤell, ∇ₓₓell, ∇ₓᵤell, ∇ᵤᵤell = get_instant_cost_derivatives(cost_funcs.ell, x, u, x_ref)
+        else
+            ∇ₓell, ∇ᵤell = cost_funcs.∇ell(x, u, x_ref=x_ref)
+            ∇ₓₓell, ∇ₓᵤell, ∇ᵤᵤell = cost_funcs.∇²ell(x, u, x_ref=x_ref)
+        end
+
 
         # store cost information
         push!(ell_arr, ell*dt)
@@ -205,16 +102,21 @@ function backward_pass_ddp!(
         push!(∇ᵤᵤell_arr, ∇ᵤᵤell*dt)
     end
 
-    ϕ = prob.ϕ(X(prob.tf), prob.x_final)
-    ∇ₓϕ, ∇ₓₓϕ = get_terminal_cost_derivatives(prob.ϕ, X(prob.tf), prob.x_final)
+    ϕ = cost_funcs.ϕ(X(prob.tf), x_ref=prob.x_final)
+    if isequal(cost_funcs.∇ϕ, empty)
+        ∇ₓϕ, ∇ₓₓϕ = get_terminal_cost_derivatives(cost_funcs.ϕ, X(prob.tf), prob.x_final)
+    else
+        ∇ₓϕ = cost_funcs.∇ϕ(X(prob.tf), x_ref=prob.x_final)
+        ∇ₓₓϕ = cost_funcs.∇²ϕ(X(prob.tf), x_ref=prob.x_final)
+    end
 
     # value function and its derivatives
     V = copy(ϕ)
     ∇ₓV = copy(∇ₓϕ)
     ∇ₓₓV = copy(∇ₓₓϕ)
 
-    push!(l_arr, zeros(prob.u_dim))
-    push!(L_arr, zeros(prob.u_dim, prob.x_dim))
+    push!(l_arr, zeros(prob.dims.nu))
+    push!(L_arr, zeros(prob.dims.nu, prob.dims.nx))
 
     # backward pass
     for k in length(ell_arr):-1:1
@@ -228,9 +130,9 @@ function backward_pass_ddp!(
 
         if !isilqr
             for j = 1:prob.x_dim
-                ∇ₓₓQ += ∇ₓV[j] .* ∇ₓₓf_arr[k][j, :, :]
-                ∇ₓᵤQ += ∇ₓV[j] .* ∇ₓᵤf_arr[k][j, :, :]
-                ∇ᵤᵤQ += ∇ₓV[j] .* ∇ᵤᵤf_arr[k][j, :, :]
+                ∇ₓₓQ += ∇ₓV[j] .* ∇ₓₓf_arr[k][:, :, j]
+                ∇ₓᵤQ += ∇ₓV[j] .* ∇ₓᵤf_arr[k][:, :, j]
+                ∇ᵤᵤQ += ∇ₓV[j] .* ∇ᵤᵤf_arr[k][:, :, j]
             end
         end
 
@@ -248,8 +150,8 @@ function backward_pass_ddp!(
         push!(l_arr, l)
         push!(L_arr, L)
     end
-    l_func = CubicSpline(reverse(l_arr), 0:dt:tf)
-    L_func = CubicSpline(reverse(L_arr), 0:dt:tf)
+    l_func = interpolate(reverse(l_arr), 0:dt:tf)
+    L_func = interpolate(reverse(L_arr), 0:dt:tf)
     sol.gains.l = l_func
     sol.gains.L = L_func
 end
@@ -259,8 +161,8 @@ end
     backward_pass_cddp()
 """
 function backward_pass_cddp!(
-    sol::DDPSolutions,
-    prob::AbstractDDPProblem,
+    sol::CDDPSolution,
+    prob::CDDPProblem,
     params::CDDPParameter;
     isilqr::Bool=false
 )

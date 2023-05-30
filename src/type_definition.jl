@@ -7,12 +7,7 @@
 abstract type AbstractDynamicsModel end
 abstract type AbstractObservationModel end
 abstract type AbstractDDPProblem end
-abstract type AbstractParameter end
-abstract type DDPArrays end
-abstract type DDPSolutions end
-
-
-
-
-
-
+abstract type AbstractDDPFunction end
+abstract type AbstractDDPParameter end
+abstract type AbstractDDPGain end
+abstract type AbstractDDPSolution end

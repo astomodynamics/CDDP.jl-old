@@ -7,7 +7,7 @@
 =#
 ################################################################################
 
-mutable struct DDPParameter <: AbstractParameter
+mutable struct DDPParameter <: AbstractDDPParameter
     reg_param_x::Float64 # regulation parameter for state
     reg_param_u::Float64 # regulation parameter for control
     reg_param_x_fact::Float64 # regulation factor for state
@@ -20,7 +20,7 @@ mutable struct DDPParameter <: AbstractParameter
     line_search_steps::Vector{Float64} 
 end
 
-mutable struct CDDPParameter <: AbstractParameter
+mutable struct CDDPParameter <: AbstractDDPParameter
     reg_param_x::Float64 # regulation parameter for state
     reg_param_u::Float64 # regulation parameter for control
     reg_param_x_fact::Float64 # regulation factor for state
@@ -37,7 +37,7 @@ mutable struct CDDPParameter <: AbstractParameter
 end
 
 
-function ddp_params_update!(ddp_params::AbstractParameter; reg1=true, reg2=true, pert=false, descend=true)
+function ddp_params_update!(ddp_params::AbstractDDPParameter; reg1=true, reg2=true, pert=false, descend=true)
     if descend
         if reg1
             ddp_params.reg_param_x = max(ddp_params.reg_param_x_lb, ddp_params.reg_param_x/ddp_params.reg_param_x_fact)
@@ -61,102 +61,6 @@ function ddp_params_update!(ddp_params::AbstractParameter; reg1=true, reg2=true,
     end
 end
 
-
-"""
-    solve_ilqr
-
-solve_ilqr is bit faster than solve_ddp with ilqr due to euler integration in forward pass
-"""
-function solve_ilqr(
-    prob::AbstractDDPProblem;
-    max_ite::Int64=10,
-    tol::Float64=1e-6,
-    max_exe_time=200,
-    reg_param_x=1e-2,
-    reg_param_u=1e-2,
-    reg_param_x_fact=10,
-    reg_param_u_fact=10,
-    reg_param_x_lb=1e-16,
-    reg_param_u_lb=1e-16,
-    reg_param_x_ub=1e+3,
-    reg_param_u_ub=1e+3,
-    line_search_steps=5 .^ LinRange(0, -6, 30),
-    X=nothing,
-    U=nothing,
-    randomize=false,
-    verbose=true,
-)   
-    if verbose
-        @printf("**************************************************************************************\n\
-                >>> Start iLQR Problem Solver \n\
-                **************************************************************************************\n")
-    end
-    ddp_params = DDPParameter(
-        reg_param_x,
-        reg_param_u,
-        reg_param_x_fact,
-        reg_param_u_fact,
-        reg_param_x_lb,
-        reg_param_u_lb,
-        reg_param_x_ub,
-        reg_param_u_ub,
-        line_search_steps
-    )
-
-    if isequal(X, nothing)
-        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
-    elseif isequal(X, nothing) && !isequal(U, nothing)
-        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f)
-    elseif isequal(U,nothing)
-        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
-    end
-
-    J = get_trajectory_cost(X, U, prob.X_ref, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
-    J_old = Inf
-    gains = DDPGain([], [])
-    sol = DDPSolution(X, U, J, gains)
-
-    success, ite = false, 0
-    t_init = time()
-    while (ite < max_ite) && !(success && abs(J_old - J)/J < tol)
-        if time() - t_init > max_exe_time
-            @printf("Maximum computation time passed!!!")
-            break
-        end
-
-        if verbose
-            if (mod(ite, 10) == 0)
-                @printf("\
-                iter    objective 
-                \n")
-            end
-                @printf("\
-                  %d       %.6f,  
-                \n", ite, J)
-        end
-
-        backward_pass_ilqr!(sol, prob, ddp_params)
-        forward_pass_ilqr!(sol, prob, ddp_params)
-
-        if sol.J <= J
-            success = true
-            sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f=prob.f)
-            J_old = copy(J)
-            J = copy(sol.J)
-            ddp_params_update!(ddp_params, reg1=true, reg2=true, descend=true)
-        else
-            ddp_params_update!(ddp_params, reg1=true, reg2=true, descend=false)
-        end
-        ite += 1
-    end
-    # sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f=prob.f)
-    if verbose
-        @printf("**************************************************************************************\n\
-                >>> Successfully Finished iLQR Problem Solver <<< \n\
-                **************************************************************************************\n")
-    end
-    return sol
-end
 
 
 function solve_ddp(
@@ -184,6 +88,7 @@ function solve_ddp(
                 >>> Start DDP Problem Solver \n\
                 **************************************************************************************\n")
     end
+
     ddp_params = DDPParameter(
         reg_param_x,
         reg_param_u,
@@ -195,16 +100,18 @@ function solve_ddp(
         reg_param_u_ub,
         line_search_steps
     )
-
-    if isequal(X, nothing)
-        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+    cost_funcs = prob.cost_funcs
+    dyn_funcs = prob.dyn_funcs
+    if isequal(X, nothing) && isequal(U, nothing)
+        
+        X, U = initialize_trajectory(prob.model, prob.tf, prob.tN, prob.x_init, dyn_funcs.cont_ode, randomize=randomize)
     elseif isequal(X, nothing) && !isequal(U, nothing)
-        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f)
+        X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, U)
     elseif isequal(U,nothing)
-        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+        _, U = initialize_trajectory(prob.model, prob.tf, prob.tN, prob.x_init, dyn_funcs.cont_ode, randomize=randomize)
     end
     
-    J = get_trajectory_cost(X, U, prob.X_ref, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
+    J = get_trajectory_cost(X, U, prob.X_ref, prob.x_final, cost_funcs.ell, cost_funcs.ϕ, prob.tN, prob.dt) 
     J_old = Inf
     gains = DDPGain([], [])
     sol = DDPSolution(X, U, J, gains)
@@ -228,12 +135,12 @@ function solve_ddp(
                 \n", ite, J)
         end
         
-        backward_pass_ddp!(sol, prob, ddp_params)
+        backward_pass_ddp!(sol, prob, ddp_params, isilqr=isilqr)
         forward_pass_ddp!(sol, prob, ddp_params)
 
         if sol.J < J
             success = true
-            sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f=prob.f)
+            sol.X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, sol.U, ode_alg=RK4())
             J_old = copy(J)
             J = copy(sol.J)
             ddp_params_update!(ddp_params, reg1=true, reg2=true, descend=true)
@@ -242,6 +149,7 @@ function solve_ddp(
         end
         ite += 1
     end
+    sol.X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, sol.U)
     if verbose
         @printf("**************************************************************************************\n\
                 >>> Successfully Finished DDP Problem Solver <<< \n\
