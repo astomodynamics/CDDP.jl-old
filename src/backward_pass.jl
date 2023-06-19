@@ -150,8 +150,10 @@ function backward_pass_ddp!(
         push!(l_arr, l)
         push!(L_arr, L)
     end
-    l_func = interpolate(reverse(l_arr), 0:dt:tf)
-    L_func = interpolate(reverse(L_arr), 0:dt:tf)
+    # l_func = interpolate(reverse(l_arr), 0:dt:tf)
+    # L_func = interpolate(reverse(L_arr), 0:dt:tf)
+    l_func = ConstantInterpolation(reverse(l_arr), 0:dt:tf)
+    L_func = ConstantInterpolation(reverse(L_arr), 0:dt:tf)
     sol.gains.l = l_func
     sol.gains.L = L_func
 end

@@ -89,6 +89,10 @@ function solve_ddp(
                 **************************************************************************************\n")
     end
 
+    if isequal(prob, nothing)
+        error("DDP problem is not defined.")
+    end
+
     ddp_params = DDPParameter(
         reg_param_x,
         reg_param_u,

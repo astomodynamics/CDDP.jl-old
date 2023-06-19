@@ -19,7 +19,8 @@ function forward_pass_ddp!(
         X_new::Vector{Vector{Float64}} = Vector[]
         U_new::Vector{Vector{Float64}} = Vector[]
         push!(X_new, x_new)
-
+        
+        # TODO: simulate forward pass using DifferentialEquations.jl
         for k in 0:tN-1
             t = k*dt
             # deviation from nominal trajectory
@@ -40,8 +41,10 @@ function forward_pass_ddp!(
         push!(U_new, zeros(prob.dims.nu)) 
 
         # convert X and U array to continuous function
-        X_new_func =  CubicSpline(X_new, 0:dt:tf)
-        U_new_func =  interpolate(U_new, 0:dt:tf)
+        # X_new_func =  interpolate(X_new, 0:dt:tf)
+        # U_new_func =  interpolate(U_new, 0:dt:tf)
+        X_new_func =  ConstantInterpolation(X_new, 0:dt:tf)
+        U_new_func =  ConstantInterpolation(U_new, 0:dt:tf)
 
         # evaluate the new trajectory
         J_new = get_trajectory_cost(X_new_func, U_new_func, prob.X_ref, prob.x_final, cost_funcs.ell, cost_funcs.ϕ, prob.tN, prob.dt) 
