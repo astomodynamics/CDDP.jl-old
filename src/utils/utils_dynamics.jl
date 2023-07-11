@@ -33,7 +33,7 @@ struct DynamicsFunction <: AbstractDDPFunction
         ∇G=empty, 
         ∇²G=empty,
         G! =empty, 
-        integrator=:RK4(),
+        integrator=:Tsit5(),
     )
         if isequal(f!, empty)
             cont_ode = f
@@ -43,7 +43,7 @@ struct DynamicsFunction <: AbstractDDPFunction
 
         disc_ode(x, p, dt) = begin 
             prob = ODEProblem(cont_ode, x, (0.0, dt), p)
-            X = solve(prob, integrator, dt=dt)
+            X = solve(prob, integrator)
             return X[end]
         end
         
@@ -58,6 +58,30 @@ struct DynamicsFunction <: AbstractDDPFunction
             ∇²G,
             cont_ode,
             disc_ode,
+        )
+    end
+end
+
+struct MPPIDynamicsFunction <: AbstractMPPIFunction
+    f::Function # dynamic equation of motion without noise (out-of-place)
+    f!::Function # dynamic equation of motion without noise (in-place)
+
+
+    G::Function # noise matrix (out-of-place)
+    G!::Function # noise matrix (in-place)
+
+    function MPPIDynamicsFunction(;
+        f=empty, 
+        f! =empty, 
+        G=empty, 
+        G! =empty,
+    )
+        
+        new(
+            f,
+            f!,
+            G,
+            G!,
         )
     end
 end

@@ -19,7 +19,10 @@ struct CostFunction <: AbstractDDPFunction
         ∇ₓₓphi=empty,
     )
         if isequal(∇ₓell,empty)
-            ∇ell = empty
+            # ∇ell = empty
+            # ∇ell = (x,u) -> nothing
+            # ∇²ell = (x,u) -> nothing
+            
         else
             ∇ell(x::Vector, u::Vector; x_ref::Vector=nothing) = begin
                 return [∇ₓell(x, u, x_ref=x_ref), ∇ᵤell(x, u, x_ref=x_ref)]
@@ -29,6 +32,7 @@ struct CostFunction <: AbstractDDPFunction
                 return ∇ₓₓell(x, u,  x_ref=x_ref), ∇ₓᵤell(x, u,  x_ref=x_ref), ∇ᵤᵤell(x, u,  x_ref=x_ref)
             end
         end
+
         
         new(
             ell,
@@ -37,6 +41,21 @@ struct CostFunction <: AbstractDDPFunction
             phi,
             ∇ₓphi,
             ∇ₓₓphi,
+        )
+    end
+end
+
+struct MPPICostFunction <: AbstractMPPIFunction
+    ell::Function
+    ϕ::Function
+
+    function MPPICostFunction(;
+        ell=empty,
+        phi=empty,
+    )
+        new(
+            ell,
+            phi,
         )
     end
 end

@@ -45,7 +45,7 @@ function initialize_trajectory(
 
     U_vec = Vector[U_mat[t, :] for t in axes(U_mat,1)]
     # convert U array into U as a continuous function
-    U = CubicSpline(U_vec, 0:dt:tf)
+    U = ConstantInterpolation(U_vec, 0:dt:tf)
     
     if !isstochastic
         # integrate through DifferentialEquations.jl

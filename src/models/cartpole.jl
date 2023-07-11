@@ -80,8 +80,8 @@ mutable struct CartPole <: AbstractDynamicsModel
         
         params = DynamicsParameter(
             mc=1.0,
-            mp=0.2,
-            l=0.5,
+            mp=0.01,
+            l=1.0,
             g=9.81,
             np=4
         )

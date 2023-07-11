@@ -18,7 +18,11 @@ export # type
     AbstractDDOFunction,
     AbstractDDPArray,
     AbstractDDPSolution,
-    AbstractDDPParameter
+    AbstractDDPParameter,
+    AbstractMPPIProblem,
+    AbstractMPPIParameter,
+    AbstractMPPIFunction,
+    AbstractMPPISolution
 include("./type_definition.jl")
 
 
@@ -28,6 +32,8 @@ export
     ModelDimension,
     CostFunction,
     DynamicsFunction,
+    MPPICostFunction,
+    MPPIDynamicsFunction,
     ConstraintFunction,
     get_dims,
     get_ode_input,
@@ -78,6 +84,18 @@ include("./forward_pass.jl")
 export
     make_gif
 include("./animate.jl")
+
+# mppi solvers
+export
+    MPPIProblemCPU,
+    solve_mppi,
+    solve_mppi_old,
+    simulate_mppi,
+    solve_mppi_cpu,
+    get_optimal_distribution,
+    get_sampling_cost_update
+
+include("./controller.jl")
 
 
 end # module CDDP
