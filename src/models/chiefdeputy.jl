@@ -39,8 +39,8 @@ mutable struct DynamicsParameter
         k_J2=3 * J2 * μ * Re^2 / 2,
         Isp=1500, # MIT electrospray spec
         Œ=nothing,
-        np=11,
-        arr=[r_max, v_max, m_max, T_max, Re, μ, J2, g, k_J2, Isp, 0],
+        np=10,
+        arr=[r_max, v_max, m_max, T_max, Re, μ, J2, g, k_J2, Isp],
     )
         new(
             r_max,
@@ -85,7 +85,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     
     function ChiefDeputy(;)
 
-        dims = ModelDimension(nx=6, nu=3)
+        dims = ModelDimension(nx=7, nu=3)
         
         params = DynamicsParameter()
 
@@ -124,41 +124,71 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
         #     0.5239464999775999
         # ]
 
-        """ elliptical orbit """
-        x_init = [
-            500 / d_max
-            0.  / d_max
-            1000  / d_max
-            -0.01 / v_max
-            -0.02/ v_max
-            -0.01 / v_max
-        ]
-
+        """ elliptical orbit (Molniya)"""
         # x_init = [
         #     500 / d_max
         #     0.  / d_max
         #     1000  / d_max
-        #     -0.005 / v_max
-        #     -0.01/ v_max
-        #     -0.005 / v_max
+        #     -0.01 / v_max
+        #     -0.02/ v_max
+        #     -0.01 / v_max
         # ]
 
-        xj_final = [ 
-            0.0
-            0.0
-            0.0
-            0.0
-            0.0
-            0.0
-        ] 
+        # # x_init = [
+        # #     500 / d_max
+        # #     0.  / d_max
+        # #     1000  / d_max
+        # #     -0.005 / v_max
+        # #     -0.01/ v_max
+        # #     -0.005 / v_max
+        # # ]
+
+        # xj_final = [ 
+        #     0.0
+        #     0.0
+        #     0.0
+        #     0.0
+        #     0.0
+        #     0.0
+        # ] 
+
+        # œ_init = [
+        #     1.126185940264389e8
+        #     -8216.139711009944
+        #     1.454575457143593e11
+        #     0.17453292519943295
+        #     0.0
+        #     -1.7453292519943295
+        # ]
+
+        """ elliptical orbit (GTO)"""
+        x_init = [
+            500 / r_max
+            0.  / r_max
+            1000  / r_max
+            -0.01 / v_max
+            -0.02/ v_max
+            -0.01 / v_max
+            10.0 / m_max
+        ]
+
+        x_final = [
+            500 / r_max
+            0.  / r_max
+            1000  / r_max
+            -0.005 / v_max
+            -0.01/ v_max
+            -0.005 / v_max
+            9.9 / m_max
+        ]
 
         œ_init = [
-            1.126185940264389e8
-            -8216.139711009944
-            1.454575457143593e11
-            0.17453292519943295
+            9.494477835790528e6
+            3926.0787967853134
+            6.865970128328228e10
             0.0
-            -1.7453292519943295
+            0.17453292519943295
+            1.5714453463008868
         ]
 
         
@@ -180,7 +210,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
 end
 
 function f(x, p, t)
-    dx = zeros(6)
+    dx = zeros(length(x))
     f!(dx, x, p, t)
     return dx
 end 
@@ -198,16 +228,10 @@ The dynamic equation of motion.
 function f!(dx::Vector, x::Vector, p::ODEParameter, t::Float64)
 
     # unpack parameters
-    params = get_ode_input(p, t)
+    params = get_ode_input(x, p, t)
     (r_max, v_max, m_max, T_max,
-        Re, μ, J2, g, k_J2, Isp, œ , u) = params
-
-    r = copy(œ[1]) # radius
-    vx = copy(œ[2]) # radial velocity
-    h = copy(œ[3]) # angular momentum
-    i = copy(œ[4]) # inclinaiton
-    Ω = copy(œ[5]) # RAAN
-    θ = copy(œ[6]) # argument of latitude, theta
+        Re, μ, J2, g, k_J2, Isp, r, vx, h, i, Ω, θ, u1, u2, u3) = params
+    u = [u1, u2, u3]
 
     xj = copy(x[1]) * r_max
     yj = copy(x[2]) * r_max
@@ -235,23 +259,23 @@ function f!(dx::Vector, x::Vector, p::ODEParameter, t::Float64)
         r * (η²j - η²) 
     v̇2 = -2 * ẋj * ωz + 2 * żj * ωx - xj * ω̇z - yj * (η²j - ωz^2 - ωx^2) + zj * ω̇x - 
         (ζj - ζ) * sin(i) * cos(θ)
-    v̇3 = -2 * ẏj * ωx - xj * ωx * ωz - yj * d_max * ω̇x - zj * (η²j - ωx^2) - 
+    v̇3 = -2 * ẏj * ωx - xj * ωx * ωz - yj * r_max * ω̇x - zj * (η²j - ωx^2) - 
         (ζj - ζ) * cos(i) 
     
     # nonlinear equations of motion 
-    dx[1:6] = T_max * [
-        ẋj / d_max
-        ẏj / d_max
-        żj / d_max 
+    dx[1:7] = T_max * [
+        ẋj / r_max
+        ẏj / r_max
+        żj / r_max 
         v̇1 / v_max + u[1] / mj 
         v̇2 / v_max + u[2] / mj
         v̇3 / v_max + u[3] / mj 
-        -norm(u)/(g₀*Isp) / m_max
+        -norm(u)/(g*Isp) / m_max
     ]
 end
 
 function fc(x, p, t)
-    dx = zeros(6)
+    dx = zeros(length(x))
     fc!(dx, x, p, t)
     return dx
 end 
@@ -265,7 +289,7 @@ function fc!(dx::Vector, œ::Vector, p::ODEParameter, t::Float64)
     params = get_ode_input(œ, p, t)
     (r_max, v_max, m_max, T_max,
         Re, μ, J2, g, k_J2, Isp, _ , u) = params
-
+    
     r = copy(œ[1]) # radius
     vx = copy(œ[2]) # radial velocity
     h = copy(œ[3]) # angular momentum
@@ -289,7 +313,7 @@ function get_ode_input(x, p, t)
     U = p.U_ref
     X_ref = p.X_ref
     u = nothing
-
+    œ = nothing
     # check if the reference control is array or function
     if isa(U, Vector)
         u = U
@@ -298,10 +322,11 @@ function get_ode_input(x, p, t)
         u = U(t)
     end
 
-    if !isequal(X_ref, nothing)
-        œ = X_ref(t)
-    else
+    if isnothing(X_ref)
         œ = zeros(6)
+    else
+        œ = X_ref(t)
+        # println(œ)
     end
 
     return [p.params; œ; u]
