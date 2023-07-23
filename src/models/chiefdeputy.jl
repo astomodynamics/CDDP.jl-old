@@ -8,6 +8,7 @@
 using LinearAlgebra
 using Distributions
 using Random
+using Symbolics
 
 export ChiefDeputy
 
@@ -28,13 +29,13 @@ mutable struct DynamicsParameter
     arr::Vector{Float64} # parameter array
 
     function DynamicsParameter(;
-        r_max=200, # maximum distance
+        r_max=2200, # maximum distance
         v_max=1, # maximum velocity
-        m_max=10, # maximum mass
+        m_max=1, # maximum mass
         T_max=1, # maximum time
         Re=6378137, # earth's radius
-        μ=3.986004415 * 10^14, # gravitational parameter around earth
-        J2=1.08262668*10^-3, # J2 perturbation constant
+        μ=3.986004415e+14, # gravitational parameter around earth
+        J2=1.08262668e-3, # J2 perturbation constant
         g=9.8067, # gravitational acceleration
         k_J2=3 * J2 * μ * Re^2 / 2,
         Isp=1500, # MIT electrospray spec
@@ -72,6 +73,9 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     f::Function # dynamic equation of motion (out-of-place)
     f!::Function # dynamic equation of motion without noise (in place)
 
+    ∇f::Function # derivative of dynamics
+    ∇²f::Function # second derivative of dynamics
+
     fc::Function # chief dynamic equation of motion (out-of-place)
     fc!::Function # chief dynamic equation of motion without noise (in place)
     
@@ -85,7 +89,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     
     function ChiefDeputy(;)
 
-        dims = ModelDimension(nx=7, nu=3)
+        dims = ModelDimension(nx=6, nu=3)
         
         params = DynamicsParameter()
 
@@ -125,71 +129,120 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
         # ]
 
         """ elliptical orbit (Molniya)"""
-        # x_init = [
-        #     500 / d_max
-        #     0.  / d_max
-        #     1000  / d_max
-        #     -0.01 / v_max
-        #     -0.02/ v_max
-        #     -0.01 / v_max
-        # ]
-
-        # # x_init = [
-        # #     500 / d_max
-        # #     0.  / d_max
-        # #     1000  / d_max
-        # #     -0.005 / v_max
-        # #     -0.01/ v_max
-        # #     -0.005 / v_max
-        # # ]
-
-        # xj_final = [ 
-        #     0.0
-        #     0.0
-        #     0.0
-        #     0.0
-        #     0.0
-        #     0.0
-        # ] 
-
-        # œ_init = [
-        #     1.126185940264389e8
-        #     -8216.139711009944
-        #     1.454575457143593e11
-        #     0.17453292519943295
-        #     0.0
-        #     -1.7453292519943295
-        # ]
-
-        """ elliptical orbit (GTO)"""
         x_init = [
-            500 / r_max
+            1000 / r_max
             0.  / r_max
-            1000  / r_max
-            -0.01 / v_max
-            -0.02/ v_max
-            -0.01 / v_max
-            10.0 / m_max
+            2000  / r_max
+            0.
+            -0.6974518910635283 / v_max
+            0.
+            # 10.0 / m_max
         ]
 
-        x_final = [
+        x_final = [ 
             500 / r_max
-            0.  / r_max
-            1000  / r_max
-            -0.005 / v_max
-            -0.01/ v_max
-            -0.005 / v_max
-            9.9 / m_max
-        ]
+            0 / r_max
+            1000 / r_max
+            0. 
+            -0.34872594553176417
+            0.
+            # 9.0 / m_max
+        ] 
 
         œ_init = [
-            9.494477835790528e6
-            3926.0787967853134
-            6.865970128328228e10
+            1.5179999999999998e7
+            1.4733342674004238e-28
+            1.0052243705904616e11
+            1.096066770252439
             0.0
-            0.17453292519943295
-            1.5714453463008868
+            5.545640604761183e-32
         ]
+
+        """ elliptical orbit (GTO)"""
+        # x_init = [
+        #     500 / r_max
+        #     0.  / r_max
+        #     1000  / r_max
+        #     -0.0 / v_max
+        #     -1.1477144029190813/ v_max
+        #     -0.0 / v_max
+        #     10.0 / m_max
+        # ]
+
+        # x_final = [
+        #     500 / r_max
+        #     0.  / r_max
+        #     1000  / r_max
+        #     -0.0 / v_max
+        #     -0.01/ v_max
+        #     -0.0 / v_max
+        #     9.9 / m_max
+        # ]
+
+        # œ_init = [
+        #     9.494477835790528e6
+        #     3926.0787967853134
+        #     6.865970128328228e10
+        #     0.0
+        #     0.17453292519943295
+        #     1.5714453463008868
+        # ]
+
+        # dynamic equation of motion
+        @variables t du[1:dims.nx] u[1:dims.nx] p[1:params.np+dims.nx+dims.nu] real=true
+        du = collect(du)
+        symbolic_dynamics!(du, u, p, t)
+        f_base! = build_function(du, u, p, t, target=Symbolics.CTarget(), expression=Val{false})
+        
+        f!(dx, x, params, t) = begin
+            p = get_ode_input(x, params, t)
+            f_base!(dx, x, p, t)
+        end
+
+        f(x, params, t) = begin
+            dx = zeros(dims.nx)
+            p = get_ode_input(x, params, t)
+            f_base!(dx, x, p, t)
+            return dx
+        end
+
+        # derivative of dynamics
+        symbolic_∇ₓf! = Symbolics.jacobian(du, u)
+        symbolic_∇ᵤf! = Symbolics.jacobian(du, p[params.np+1+dims.nx:params.np+dims.nx+dims.nu])
+        symbolic_∇ₓₓf! = Symbolics.jacobian(symbolic_∇ₓf!, u)
+        symbolic_∇ₓᵤf! = Symbolics.jacobian(symbolic_∇ₓf!, p[params.np+1+dims.nx:params.np+dims.nx+dims.nu])
+        symbolic_∇ᵤᵤf! = Symbolics.jacobian(symbolic_∇ᵤf!, p[params.np+1+dims.nx:params.np+dims.nx+dims.nu])
+        ∇ₓf_base! = build_function(symbolic_∇ₓf!, u, p, t, target=Symbolics.CTarget(), expression=Val{false})
+        ∇ᵤf_base! = build_function(symbolic_∇ᵤf!, u, p, t, target=Symbolics.CTarget(), expression=Val{false})
+        ∇ₓₓf_base! = build_function(symbolic_∇ₓₓf!, u, p, t, target=Symbolics.CTarget(), expression=Val{false})
+        ∇ₓᵤf_base! = build_function(symbolic_∇ₓᵤf!, u, p, t, target=Symbolics.CTarget(), expression=Val{false})
+        ∇ᵤᵤf_base! = build_function(symbolic_∇ᵤᵤf!, u, p, t, target=Symbolics.CTarget(), expression=Val{false})
+        
+        ∇f(x, params) = begin
+            t = 0.
+            p = get_ode_input(x, params, t)
+            nx = size(x, 1)
+            nu = size(params.U_ref, 1)
+            ∇ₓf = zeros(nx, nx)
+            ∇ᵤf = zeros(nx, nu)
+            ∇ₓf_base!(∇ₓf, x, p, t)
+            ∇ᵤf_base!(∇ᵤf, x, p, t)
+            return ∇ₓf, ∇ᵤf
+        end
+
+        ∇²f(x, params) = begin
+            t = 0.
+            p = get_ode_input(x, params, t)
+            nx = size(x, 1)
+            nu = size(params.U_ref, 1)
+            ∇ₓₓf = zeros(nx, nx, nx)
+            ∇ₓᵤf = zeros(nx, nx, nu)
+            ∇ᵤᵤf = zeros(nx, nu, nu)
+            ∇ₓₓf_base!(∇ₓₓf, x, p, t)
+            ∇ₓᵤf_base!(∇ₓᵤf, x, p, t)
+            ∇ᵤᵤf_base!(∇ᵤᵤf, x, p, t)
+            return ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf
+        end
 
         
         new(
@@ -199,6 +252,8 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
             œ_init,
             f,
             f!,
+            ∇f,
+            ∇²f,
             fc,
             fc!,
             empty,
@@ -209,28 +264,23 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     end
 end
 
-function f(x, p, t)
-    dx = zeros(length(x))
-    f!(dx, x, p, t)
-    return dx
-end 
 
 """
-    f(x, p, t)
+    symbolic_dynamics!(dx, x, p, t)
 
 The dynamic equation of motion.
 
 # Arguments
+- `dx`: derivative of state at a given time step
 - `x`: state at a given time step
 - `p`: parameter arguments
 - `t`: time
 """
-function f!(dx::Vector, x::Vector, p::ODEParameter, t::Float64)
+function symbolic_dynamics!(dx, x, p, t)
 
     # unpack parameters
-    params = get_ode_input(x, p, t)
     (r_max, v_max, m_max, T_max,
-        Re, μ, J2, g, k_J2, Isp, r, vx, h, i, Ω, θ, u1, u2, u3) = params
+        Re, μ, J2, g, k_J2, Isp, r, vx, h, i, Ω, θ, u1, u2, u3) = p
     u = [u1, u2, u3]
 
     xj = copy(x[1]) * r_max
@@ -239,7 +289,7 @@ function f!(dx::Vector, x::Vector, p::ODEParameter, t::Float64)
     ẋj = copy(x[4]) * v_max
     ẏj = copy(x[5]) * v_max
     żj = copy(x[6]) * v_max
-    mj = copy(x[7]) * m_max
+    # mj = copy(x[7]) * m_max
     
     η² = μ / r^3 + k_J2 / r^5 - 5 * k_J2 * sin(i)^2 * sin(θ)^2 / r^5
     ζ = 2 * k_J2 * sin(i) * sin(θ) / r^4
@@ -261,16 +311,16 @@ function f!(dx::Vector, x::Vector, p::ODEParameter, t::Float64)
         (ζj - ζ) * sin(i) * cos(θ)
     v̇3 = -2 * ẏj * ωx - xj * ωx * ωz - yj * r_max * ω̇x - zj * (η²j - ωx^2) - 
         (ζj - ζ) * cos(i) 
-    
+    mj = 1
     # nonlinear equations of motion 
-    dx[1:7] = T_max * [
+    dx[1:6] = T_max * [
         ẋj / r_max
         ẏj / r_max
         żj / r_max 
-        v̇1 / v_max + u[1] / mj 
-        v̇2 / v_max + u[2] / mj
-        v̇3 / v_max + u[3] / mj 
-        -norm(u)/(g*Isp) / m_max
+        (v̇1 / v_max + u[1]) / mj 
+        (v̇2 / v_max + u[2]) / mj
+        (v̇3 / v_max + u[3]) / mj 
+        # 0
     ]
 end
 
@@ -293,9 +343,10 @@ function fc!(dx::Vector, œ::Vector, p::ODEParameter, t::Float64)
     r = copy(œ[1]) # radius
     vx = copy(œ[2]) # radial velocity
     h = copy(œ[3]) # angular momentum
-    i = copy(œ[4]) # inclinaiton
-    Ω = copy(œ[5]) # RAAN
-    θ = copy(œ[6]) # argument of latitude, theta
+    i = (copy(œ[4])) # inclinaiton
+    Ω = (copy(œ[5])) # RAAN
+    θ = (copy(œ[6])) # argument of latitude, theta
+
 
     # chief dynamics æ̇; æ̇_dim = 6
     dx[1:6] = T_max * [
@@ -306,27 +357,32 @@ function fc!(dx::Vector, œ::Vector, p::ODEParameter, t::Float64)
         -2 * k_J2 * cos(i) * sin(θ)^2 / (h * r^3) 
         h / r^2 + 2 * k_J2 * cos(i)^2 * sin(θ)^2 / (h * r^3)
     ]
+    return dx
 end
 
 
 function get_ode_input(x, p, t)
     U = p.U_ref
     X_ref = p.X_ref
+    U_md = p.U_md
     u = nothing
     œ = nothing
-    # check if the reference control is array or function
-    if isa(U, Vector)
+
+    if isnothing(p.U_ref)
+        u = nothing
+    elseif isa(p.U_ref, Vector)
+        # check if the reference control is array or function
         u = U
     else
-        # u = p.U_ref[trunc(Int, t/model.dt)+1]
         u = U(t)
     end
 
-    if isnothing(X_ref)
+    if isnothing(U_md)
         œ = zeros(6)
+    elseif isa(U_md, Vector)
+        œ = U_md
     else
-        œ = X_ref(t)
-        # println(œ)
+        œ = U_md(t)
     end
 
     return [p.params; œ; u]

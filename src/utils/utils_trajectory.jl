@@ -28,11 +28,12 @@ function initialize_trajectory(
     x_init::Vector{Float64},
     f::Function;
     F::Function=empty,
+    U_md=nothing,
     X_ref=nothing,
-    ode_alg=Tsit5(),
+    ode_alg=RK4(),
     sde_alg=EM(),
-    reltol=1e-12, 
-    abstol=1e-12,
+    reltol=1e-8, 
+    abstol=1e-8,
     randomize::Bool=false,
     isstochastic::Bool=false,
 )
@@ -52,13 +53,17 @@ function initialize_trajectory(
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
         if isnothing(X_ref)
-            p = ODEParameter(params=model.params.arr, U_ref=U)
+            if isnothing(U_md)
+                p = ODEParameter(params=model.params.arr, U_ref=U)
+            else
+                p = ODEParameter(params=model.params.arr, U_ref=U, U_md=U_md)
+            end
         else
             p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref)
         end
 
         # define ODE problem
-        prob = ODEProblem(f, x_init, (0.0,tf), p)
+        prob = ODEProblem(f, x_init, (0.0,tf), p, dt=dt)
 
         # solve ODE problem
         X = solve(prob, ode_alg, reltol=reltol, abstol=abstol)
@@ -66,7 +71,11 @@ function initialize_trajectory(
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
         if isnothing(X_ref)
-            p = ODEParameter(params=model.params.arr, U_ref=U)
+            if isnothing(U_md)
+                p = ODEParameter(params=model.params.arr, U_ref=U)
+            else
+                p = ODEParameter(params=model.params.arr, U_ref=U, U_md=U_md)
+            end
         else
             p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref)
         end
@@ -98,6 +107,7 @@ function simulate_trajectory(
     f::Function,
     U;
     F::Function=empty,
+    U_md=nothing,
     X_ref=nothing,
     l=nothing,
     L=nothing,
@@ -112,10 +122,19 @@ function simulate_trajectory(
     if !isstochastic
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
-        if !isfeedback
-            p = ODEParameter(params=model.params.arr, U_ref=U)
+
+        if isnothing(X_ref)
+            if isnothing(U_md)
+                p = ODEParameter(params=model.params.arr, U_ref=U)
+            else
+                p = ODEParameter(params=model.params.arr, U_ref=U, U_md=U_md)
+            end
         else
-            p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref, l=l, L=L)
+            if !isfeedback
+                p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref)
+            else
+                p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref, l=l, L=L)
+            end
         end
 
         # define ODE problem
@@ -127,10 +146,18 @@ function simulate_trajectory(
     else
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
-        if !isfeedback
-            p = ODEParameter(params=model.params.arr, U_ref=U)
+        if isnothing(X_ref)
+            if isnothing(U_md)
+                p = ODEParameter(params=model.params.arr, U_ref=U)
+            else
+                p = ODEParameter(params=model.params.arr, U_ref=U, U_md=U_md)
+            end
         else
-            p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref, l=l, L=L)
+            if !isfeedback
+                p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref)
+            else
+                p = ODEParameter(params=model.params.arr, U_ref=U, X_ref=X_ref, l=l, L=L)
+            end
         end
 
         # define SDE problem

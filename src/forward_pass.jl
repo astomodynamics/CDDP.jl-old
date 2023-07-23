@@ -29,9 +29,13 @@ function forward_pass_ddp!(
             # update local optimal control
             u_new = U(t) + step * l(t) + L(t) * δx
 
-            # propagate the next state
-            p = ODEParameter(params=prob.model.params.arr, U_ref=u_new)
+            if isnothing(prob.U_md)
+                p = ODEParameter(params=prob.model.params.arr, U_ref=u_new)
+            else
+                p = ODEParameter(params=prob.model.params.arr, U_ref=u_new, U_md=prob.U_md(t))
+            end
 
+            # propagate the next state
             x_new = dyn_funcs.disc_ode(x_new, p, dt)
             
             # save new trajectory
@@ -41,10 +45,8 @@ function forward_pass_ddp!(
         push!(U_new, zeros(prob.dims.nu)) 
 
         # convert X and U array to continuous function
-        # X_new_func =  interpolate(X_new, 0:dt:tf)
-        # U_new_func =  interpolate(U_new, 0:dt:tf)
-        X_new_func =  ConstantInterpolation(X_new, 0:dt:tf)
-        U_new_func =  ConstantInterpolation(U_new, 0:dt:tf)
+        X_new_func =  interpolate(X_new, 0:dt:tf)
+        U_new_func =  interpolate(U_new, 0:dt:tf)
 
         # evaluate the new trajectory
         J_new = get_trajectory_cost(X_new_func, U_new_func, prob.X_ref, prob.x_final, cost_funcs.ell, cost_funcs.ϕ, prob.tN, prob.dt) 

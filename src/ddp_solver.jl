@@ -107,12 +107,11 @@ function solve_ddp(
     cost_funcs = prob.cost_funcs
     dyn_funcs = prob.dyn_funcs
     if isequal(X, nothing) && isequal(U, nothing)
-        
-        X, U = initialize_trajectory(prob.model, prob.tf, prob.tN, prob.x_init, dyn_funcs.cont_ode, randomize=randomize)
+        X, U = initialize_trajectory(prob.model, prob.tf, prob.tN, prob.x_init, dyn_funcs.cont_ode, randomize=randomize, U_md=prob.U_md)
     elseif isequal(X, nothing) && !isequal(U, nothing)
-        X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, U)
+        X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, U, U_md=prob.U_md)
     elseif isequal(U,nothing)
-        _, U = initialize_trajectory(prob.model, prob.tf, prob.tN, prob.x_init, dyn_funcs.cont_ode, randomize=randomize)
+        _, U = initialize_trajectory(prob.model, prob.tf, prob.tN, prob.x_init, dyn_funcs.cont_ode, randomize=randomize, U_md=prob.U_md)
     end
     
     J = get_trajectory_cost(X, U, prob.X_ref, prob.x_final, cost_funcs.ell, cost_funcs.ϕ, prob.tN, prob.dt) 
@@ -144,7 +143,7 @@ function solve_ddp(
 
         if sol.J < J
             success = true
-            sol.X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, sol.U, ode_alg=RK4())
+            sol.X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, sol.U, U_md=prob.U_md)
             J_old = copy(J)
             J = copy(sol.J)
             ddp_params_update!(ddp_params, reg1=true, reg2=true, descend=true)
@@ -211,11 +210,11 @@ function solve_cddp(
     )
 
     if isequal(X, nothing)
-        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+        X, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false, U_md=prob.U_md)
     elseif isequal(X, nothing) && !isequal(U, nothing)
-        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f)
+        X = simulate_trajectory(prob.model, prob.x_init, U, prob.tf, prob.dt, f=prob.f, U_md=prob.U_md)
     elseif isequal(U,nothing)
-        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false)
+        _, U = initialize_trajectory(prob.model, x_init=prob.x_init, tf=prob.tf, tN=prob.tN, f=prob.f, randomize=false, U_md=prob.U_md)
     end
     
     J = get_trajectory_cost(X, U, nothing, prob.x_final, prob.ell, prob.ϕ, prob.tN, prob.dt) 
@@ -279,7 +278,7 @@ function solve_cddp(
 
         if sol.J < J
             # find better solution trajectory
-            sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f=prob.f)
+            sol.X = simulate_trajectory(prob.model, prob.x_init, sol.U, prob.tf, prob.dt, f=prob.f, U_md=prob.U_md)
             J_old = copy(J)
             J = copy(sol.J)
             success = true

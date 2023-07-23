@@ -8,7 +8,7 @@ function backward_pass_ddp!(
     prob::DDPProblem,
     params::DDPParameter;
     isilqr::Bool=false,
-    interpolate=CubicSpline
+    interpolate=ConstantInterpolation
 )
     dyn_funcs = prob.dyn_funcs
     cost_funcs = prob.cost_funcs
@@ -39,9 +39,21 @@ function backward_pass_ddp!(
         t = k * dt
         x, u = X(t), U(t)
         x_ref = nothing
+        u_md = nothing
+        p = nothing
 
-        if !isequal(prob.X_ref, nothing)
+        # get reference trajectory
+        if !isnothing(prob.X_ref)
             x_ref = prob.X_ref(t)
+        else
+            x_ref=zeros(length(x))
+        end
+
+        # get model disturbance
+        if !isnothing(prob.U_md)
+            u_md = prob.U_md(t)
+        else
+            u_md=zeros(length(x))
         end
 
         # get dynamics information
@@ -63,15 +75,16 @@ function backward_pass_ddp!(
                 push!(∇ᵤᵤf_arr, ∇ᵤᵤf * dt)
             end
         else
+            p = ODEParameter(params=prob.model.params.arr, U_ref=u, U_md=u_md)
             
-            ∇ₓf, ∇ᵤf = dyn_funcs.∇f(x, u, prob.model.params)
+            ∇ₓf, ∇ᵤf = dyn_funcs.∇f(x, p)
 
             # store dynamics information
             push!(∇ₓf_arr, I + ∇ₓf * dt)
             push!(∇ᵤf_arr, ∇ᵤf * dt)
 
             if !isilqr
-                ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = dyn_funcs.∇²f(x, u, prob.model.params)
+                ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf = dyn_funcs.∇²f(x, p)
     
                 # store dynamics information
                 push!(∇ₓf_arr, I + ∇ₓf * dt)
@@ -84,14 +97,13 @@ function backward_pass_ddp!(
         
         # get cost information
         ell = cost_funcs.ell(x, u, x_ref=x_ref)
-
+        
         if isequal(cost_funcs.∇ell, empty)
             ∇ₓell, ∇ᵤell, ∇ₓₓell, ∇ₓᵤell, ∇ᵤᵤell = get_instant_cost_derivatives(cost_funcs.ell, x, u, x_ref)
         else
             ∇ₓell, ∇ᵤell = cost_funcs.∇ell(x, u, x_ref=x_ref)
             ∇ₓₓell, ∇ₓᵤell, ∇ᵤᵤell = cost_funcs.∇²ell(x, u, x_ref=x_ref)
         end
-
 
         # store cost information
         push!(ell_arr, ell*dt)
@@ -103,6 +115,7 @@ function backward_pass_ddp!(
     end
 
     ϕ = cost_funcs.ϕ(X(prob.tf), x_ref=prob.x_final)
+
     if isequal(cost_funcs.∇ϕ, empty)
         ∇ₓϕ, ∇ₓₓϕ = get_terminal_cost_derivatives(cost_funcs.ϕ, X(prob.tf), prob.x_final)
     else
@@ -120,6 +133,9 @@ function backward_pass_ddp!(
 
     # backward pass
     for k in length(ell_arr):-1:1
+        println(∇ₓf_arr[k])
+        println(∇ᵤf_arr[k])
+        println(∇ₓV)
         # Q = ell_arr[k] + V
         ∇ₓQ = ∇ₓell_arr[k] + ∇ₓf_arr[k]' * ∇ₓV
         ∇ᵤQ = ∇ᵤell_arr[k] + ∇ᵤf_arr[k]' * ∇ₓV
@@ -150,10 +166,8 @@ function backward_pass_ddp!(
         push!(l_arr, l)
         push!(L_arr, L)
     end
-    # l_func = interpolate(reverse(l_arr), 0:dt:tf)
-    # L_func = interpolate(reverse(L_arr), 0:dt:tf)
-    l_func = ConstantInterpolation(reverse(l_arr), 0:dt:tf)
-    L_func = ConstantInterpolation(reverse(L_arr), 0:dt:tf)
+    l_func = interpolate(reverse(l_arr), 0:dt:tf)
+    L_func = interpolate(reverse(L_arr), 0:dt:tf)
     sol.gains.l = l_func
     sol.gains.L = L_func
 end
