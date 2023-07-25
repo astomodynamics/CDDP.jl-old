@@ -3,6 +3,8 @@ mutable struct KFProblem
 
     nx::Int64 # state dimension
     nu::Int64 # control dimension
+    nw::Int64 # process noise dimension
+    nv::Int64 # measurement noise dimension
 
     x_init::AbstractArray{Float64, 1}
 
@@ -22,6 +24,8 @@ mutable struct KFProblem
         dt::Float64,
         nx::Int64,
         nu::Int64,
+        nw::Int64,
+        nv::Int64,
         x_init::AbstractArray{Float64, 1},
         P::AbstractArray{Float64, 2},
         Q,
@@ -29,108 +33,113 @@ mutable struct KFProblem
         mean,
         variance::Float64,
         distribution::Normal{Float64},
-        islinear::Bool=false,
     )
 
         new(
             dt,
             nx,
             nu,
+            nw,
+            nv,
             x_init,
             P,
             Q,
             R,
             mean,
             variance,
-            distribution,
-            islinear,
+            distribution
         )
     end
 end
 
 mutable struct EKFProblem
-    function EKFProblem()
+    dt::Float64 # discretization step-size
+
+    dims::ModelDimension
+
+    x_init::AbstractArray{Float64, 1}
+
+    f # dynamics function
+    h # measurement function
+    P::AbstractArray{Float64, 2} # Covariance matrix
+
+    Q
+    R
+
+    μ_proc
+    μ_meas
+    Σ_proc
+    Σ_meas
+
+    distribution::Normal{Float64}
+
+    function EKFProblem(
+        dt::Float64,
+        dims::ModelDimension,
+        μ_proc,
+        μ_meas,
+        Σ_proc,
+        Σ_meas,
+    )
         new()
     end
 end
 
 
-mutable struct KFProblem
-    dt::Float64 # discretization step-size
-    tN::Int64 # number of time-discretization steps
+# function KFProblem(
+#     model::AbstractDynamicsModel,
+# )
 
-    x_dim::Int64 # state dimension
-    u_dim::Int64 # control dimension
+#     dt = model.dt
+#     tN = model.tN
+#     x_dim = model.x_dim
+#     u_dim = model.u_dim
+#     w_dim = x_dim
+#     v_dim = 3
 
-    x_init::AbstractArray{Float64, 1}
-    
-    P::AbstractArray{Float64, 2} # Covariance matrix
-    P_arr::AbstractArray{Float64, 3} # Covariance matrix history
+#     x_init = model.x_init
+#     # if tr(model.P_cov) == 0
+#     #     P = I + zeros(x_dim, x_dim)
+#     # else
+#     #     P = model.P_cov
+#     # end
+#     Q_pro = Diagonal(1e+0 * ones(w_dim))
+#     R_meas = Diagonal(1e+0 * ones(v_dim))
+#     P = I + zeros(x_dim, x_dim)
 
-    Q
-    R
+#     mean_pro = 0.0
+#     variance_pro = 1e-7
+#     mean_meas = 0.0
+#     variance_meas = 1e-4
+#     dist_pro = Normal(mean_pro, sqrt(variance_pro))
+#     dist_meas = Normal(mean_meas, sqrt(variance_meas))
 
-    mean
-    variance::Float64
-    distribution::Normal{Float64}
+#     P_arr = zeros(x_dim,x_dim,tN)
 
-    islinear::Bool # used to improve convergence speed by discarding numerical fidelity
-end
+#     Q = Q_pro
+#     R = R_meas
 
-function KFProblem(
-    model::AbstractDynamicsModel,
-)
+#     mean = mean_pro
+#     variance = variance_pro
+#     distribution = dist_pro
 
-    dt = model.dt
-    tN = model.tN
-    x_dim = model.x_dim
-    u_dim = model.u_dim
-    w_dim = x_dim
-    v_dim = 3
-
-    x_init = model.x_init
-    # if tr(model.P_cov) == 0
-    #     P = I + zeros(x_dim, x_dim)
-    # else
-    #     P = model.P_cov
-    # end
-    Q_pro = Diagonal(1e+0 * ones(w_dim))
-    R_meas = Diagonal(1e+0 * ones(v_dim))
-    P = I + zeros(x_dim, x_dim)
-
-    mean_pro = 0.0
-    variance_pro = 1e-7
-    mean_meas = 0.0
-    variance_meas = 1e-4
-    dist_pro = Normal(mean_pro, sqrt(variance_pro))
-    dist_meas = Normal(mean_meas, sqrt(variance_meas))
-
-    P_arr = zeros(x_dim,x_dim,tN)
-
-    Q = Q_pro
-    R = R_meas
-
-    mean = mean_pro
-    variance = variance_pro
-    distribution = dist_pro
-
-    islinear = false
-    KFProblem(
-        dt,
-        tN,
-        x_dim,
-        u_dim,
-        x_init,
-        P,
-        P_arr,
-        Q,
-        R,
-        mean,
-        variance,
-        distribution,
-        islinear,
-    )
-end
+#     islinear = false
+#     KFProblem(
+#         dt,
+#         tN,
+#         x_dim,
+#         u_dim,
+#         x_init,
+#         P,
+#         P_arr,
+#         Q,
+#         R,
+#         mean,
+#         variance,
+#         distribution,
+#         islinear,
+#     )
+# end
 
 """
 """

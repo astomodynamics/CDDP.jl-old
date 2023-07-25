@@ -4,9 +4,10 @@ mutable struct ModelDimension <: AbstractDDPParameter
     nu::Int64 # control dimension
     nw::Int64 # noise dimension
     nλ::Int64 # constraint dimension
+    nv::Int64 # measurement noise dimension
 
-    function ModelDimension(;nx=0, nu=0, nw=0, nλ=0)
-        new(nx, nu, nw, nλ)
+    function ModelDimension(;nx=0, nu=0, nw=0, nλ=0, nv=0)
+        new(nx, nu, nw, nλ, nv)
     end
 end
 
