@@ -30,10 +30,10 @@ function initialize_trajectory(
     F::Function=empty,
     U_md=nothing,
     X_ref=nothing,
-    ode_alg=RK4(),
+    ode_alg=Tsit5(),
     sde_alg=EM(),
-    reltol=1e-8, 
-    abstol=1e-8,
+    reltol=1e-12, 
+    abstol=1e-12,
     randomize::Bool=false,
     isstochastic::Bool=false,
 )
@@ -63,10 +63,10 @@ function initialize_trajectory(
         end
 
         # define ODE problem
-        prob = ODEProblem(f, x_init, (0.0,tf), p, dt=dt)
+        prob = ODEProblem(f, x_init, (0.0,tf), p)
 
         # solve ODE problem
-        X = solve(prob, ode_alg, reltol=reltol, abstol=abstol)
+        X = solve(prob, ode_alg, reltol=reltol, abstol=abstol, saveat=dt)
     else
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)
@@ -142,7 +142,7 @@ function simulate_trajectory(
 
 
         # solve ODE problem
-        X = solve(prob, ode_alg, reltol=reltol, abstol=abstol)
+        X = solve(prob, ode_alg, reltol=reltol, abstol=abstol, saveat=dt)
     else
         # integrate through DifferentialEquations.jl
         # set ODE parameters (for control and storaged trajectory)

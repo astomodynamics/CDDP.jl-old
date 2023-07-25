@@ -97,5 +97,12 @@ export
 
 include("./controller.jl")
 
+# filters
+export 
+    KFProblem,
+    solve_KF,
+    EKFProblem,
+    solve_EKF
+
 
 end # module CDDP

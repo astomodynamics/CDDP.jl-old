@@ -152,7 +152,7 @@ function solve_ddp(
         end
         ite += 1
     end
-    sol.X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, sol.U)
+    sol.X = simulate_trajectory(prob.model, prob.tf, prob.dt, prob.x_init, dyn_funcs.cont_ode, sol.U, U_md=prob.U_md)
     if verbose
         @printf("**************************************************************************************\n\
                 >>> Successfully Finished DDP Problem Solver <<< \n\

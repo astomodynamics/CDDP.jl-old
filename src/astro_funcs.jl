@@ -63,7 +63,7 @@ end
 """
 
 """
-function MOE2OE(æ::Vector;iseccentric=true)
+function MOE2OE_mean(æ::Vector;iseccentric=true)
     """Compute inertial frame position and velocity vectors"""
     if iseccentric
         μ = 3.986004415e+14
@@ -76,6 +76,7 @@ function MOE2OE(æ::Vector;iseccentric=true)
         M = copy(æ[6]) # mean anomaly
 
         p = a*(1.0 - e^2) # the parameter
+        h = sqrt(μ * p) # angular momentum magnitude
 
         E = Kepler_eqn(M+e/2.0,M,e) # eccentric anomaly
         f = 2.0*atan(sqrt((1 + e)/(1 - e))*tan(E/2)) # eccentric anomaly, rad
@@ -83,7 +84,7 @@ function MOE2OE(æ::Vector;iseccentric=true)
 
         # perifocal frame position and velocity vecvor
         r_pqw = r*[cos(f);sin(f); 0]
-        v_pqw = sqrt(μ/p)*[-sin(f);e+cos(f); 0]
+        v_pqw = μ / h *[-sin(f); e+cos(f); 0]
 
         # set Euler rotation matrix (3-1-3)
         PQW2ECI313 = PQW2ECI(Ω,3)*PQW2ECI(i,1)*PQW2ECI(ω,3)
@@ -91,13 +92,57 @@ function MOE2OE(æ::Vector;iseccentric=true)
         # inertial frame position and velocity vector
         r_ECI = PQW2ECI313*r_pqw
         v_ECI = PQW2ECI313*v_pqw
+        println("r_ECI: ", r_ECI)
+        println("v_ECI: ", v_ECI)
 
         x_eci = [r_ECI; v_ECI]
 
         r = norm(r_ECI)
         v = norm(v_ECI)
         hv = cross(x_eci[1:3],x_eci[4:6]) # angular momentum vector
-        h = norm(hv)
+        
+        v_x = dot(x_eci[1:3],x_eci[4:6])/norm(x_eci[1:3])
+        θ = f + ω
+    end
+    return [r; v_x; h; i; Ω; θ]
+end
+
+function MOE2OE_true(æ::Vector;iseccentric=true)
+    """Compute inertial frame position and velocity vectors"""
+    if iseccentric
+        μ = 3.986004415e+14
+
+        a = copy(æ[1]) # a: Semi-major axis, m
+        e = copy(æ[2]) # eccentricity
+        i = copy(æ[3]) # inclination
+        Ω = copy(æ[4]) # RAAN
+        ω = copy(æ[5]) # argument of periapsis
+        f = copy(æ[6]) # true anomaly
+
+        p = a*(1.0 - e^2) # the parameter
+        h = sqrt(μ * p) # angular momentum magnitude
+
+        r = p / (1 + e*cos(f)) # radius magnitude
+
+        # perifocal frame position and velocity vecvor
+        r_pqw = r*[cos(f);sin(f); 0]
+        v_pqw = μ / h *[-sin(f); e+cos(f); 0]
+
+        # set Euler rotation matrix (3-1-3)
+        PQW2ECI313 = PQW2ECI(Ω,3)*PQW2ECI(i,1)*PQW2ECI(ω,3)
+
+        # inertial frame position and velocity vector
+        r_ECI = PQW2ECI313*r_pqw
+        v_ECI = PQW2ECI313*v_pqw
+        println("r_ECI: ", r_ECI)
+        println("v_ECI: ", v_ECI)
+
+        x_eci = [r_ECI; v_ECI]
+
+        r = norm(r_ECI)
+        v = norm(v_ECI)
+        hv = cross(x_eci[1:3],x_eci[4:6]) # angular momentum vector
+        
         v_x = dot(x_eci[1:3],x_eci[4:6])/norm(x_eci[1:3])
         θ = f + ω
     end

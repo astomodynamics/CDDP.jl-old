@@ -177,3 +177,9 @@ function get_terminal_const_derivative(
 
     return ∇ₓc, ∇ᵤc, ∇ₓₓc, ∇ₓᵤc, ∇ᵤᵤc
 end
+
+
+function get_observation_derivatives(func, x)
+    ∇h = ForwardDiff.jacobian(x -> func(x), x)
+    return ∇h
+end

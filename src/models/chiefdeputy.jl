@@ -29,16 +29,16 @@ mutable struct DynamicsParameter
     arr::Vector{Float64} # parameter array
 
     function DynamicsParameter(;
-        r_max=2200, # maximum distance
-        v_max=1, # maximum velocity
-        m_max=1, # maximum mass
-        T_max=1, # maximum time
-        Re=6378137, # earth's radius
+        r_max=1000., # maximum distance
+        v_max=1., # maximum velocity
+        m_max=1., # maximum mass
+        T_max=1., # maximum time
+        Re=6378137., # earth's radius
         μ=3.986004415e+14, # gravitational parameter around earth
         J2=1.08262668e-3, # J2 perturbation constant
         g=9.8067, # gravitational acceleration
         k_J2=3 * J2 * μ * Re^2 / 2,
-        Isp=1500, # MIT electrospray spec
+        Isp=2000., 
         Œ=nothing,
         np=10,
         arr=[r_max, v_max, m_max, T_max, Re, μ, J2, g, k_J2, Isp],
@@ -99,95 +99,158 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
         T_max = params.T_max
 
         """ circular orbit"""
-        # x_init = [
-        #     -93.89268872140511 / r_max
-        #     68.20928216330306 / r_max
-        #     34.10464108165153 / r_max
-        #     0.037865035768176944 / v_max
-        #     0.2084906865487613 / v_max
-        #     0.10424534327438065 / v_max
-        #     4.0 / m_max
-        # ]
-
-        # x_final =[
-        #     -37.59664132226163 / r_max
-        #     27.312455860666148 / r_max
-        #     13.656227930333074 / r_max
-        #     0.015161970413423813 / v_max
-        #     0.08348413138390476 / v_max
-        #     0.04174206569195238 / v_max
-        #     3.9 / m_max
-        # ]
-
-        # œ_init = [
-        #     6.8642335934215095e6
-        #     1.3252107139528522
-        #     5.233336311343717e10
-        #     1.710422666954443
-        #     0.17453292519943295
-        #     0.5239464999775999
-        # ]
-
-        """ elliptical orbit (Molniya)"""
         x_init = [
-            1000 / r_max
-            0.  / r_max
-            2000  / r_max
-            0.
-            -0.6974518910635283 / v_max
-            0.
-            # 10.0 / m_max
+            -93.89268872140511 / r_max
+            68.20928216330306 / r_max
+            34.10464108165153 / r_max
+            0.037865035768176944 / v_max
+            0.2084906865487613 / v_max
+            0.10424534327438065 / v_max
+            # 4.0 / m_max
         ]
 
-        x_final = [ 
-            500 / r_max
-            0 / r_max
-            1000 / r_max
-            0. 
-            -0.34872594553176417
-            0.
-            # 9.0 / m_max
-        ] 
+        x_final =[
+            -37.59664132226163 / r_max
+            27.312455860666148 / r_max
+            13.656227930333074 / r_max
+            0.015161970413423813 / v_max
+            0.08348413138390476 / v_max
+            0.04174206569195238 / v_max
+            # 3.9 / m_max
+        ]
 
         œ_init = [
-            1.5179999999999998e7
-            1.4733342674004238e-28
-            1.0052243705904616e11
-            1.096066770252439
-            0.0
-            5.545640604761183e-32
+            6.8642335934215095e6
+            1.3252107139528522
+            5.233336311343717e10
+            1.710422666954443
+            0.17453292519943295
+            0.5239464999775999
         ]
 
+        """ elliptical orbit (Molniya)"""
+        # x_init = [
+        #     1000 / r_max
+        #     0.  / r_max
+        #     2000  / r_max
+        #     0.
+        #     -0.6974518910635283 / v_max
+        #     0.
+        #     # 10.0 / m_max
+        # ]
+
+        # x_final = [ 
+        #     500 / r_max
+        #     0 / r_max
+        #     1000 / r_max
+        #     0. 
+        #     -0.34872594553176417 / v_max
+        #     0.
+        #     # 9.0 / m_max
+        # ] 
+
+        # œ_init = [
+        #     1.5179999999999998e7
+        #     1.4733342674004238e-28
+        #     1.0052243705904616e11
+        #     1.096066770252439
+        #     0.0
+        #     5.545640604761183e-32
+        # ]
+
         """ elliptical orbit (GTO)"""
+        x_init = [
+            100 / r_max
+            0.  / r_max
+            200  / r_max
+            -0.0 / v_max
+            -0.2295262475850926 / v_max
+            -0.0 / v_max
+            # 500.0 / m_max
+        ]
+
+        x_final = [
+            20 / r_max
+            0.  / r_max
+            40  / r_max
+            -0.0 / v_max
+            -0.04590524951701853/ v_max
+            -0.0 / v_max
+            #  400/ m_max
+        ]
+
+        # mean orbital elements
+        # œ_init = [
+        #     6.878000000000001e6
+        #     6.526822752634004e-26
+        #     6.865970128328227e10
+        #     0.0
+        #     0.0
+        #     1.5625398808623323e-29
+        # ]
+        œ_init =[6.873777579835884e6, -0.002229583937249078, 6.8640542098738884e10, 0.05001634091439573, 0.00026150952573454346, 0.34880515073050467]
+
+        """ test case 0"""
+        # x_init = [
+        #     1250.
+        #     0.
+        #     2500.
+        #     0.
+        #     -2.850133358359352
+        #     0.
+        # ]
+        # x_final =  [
+        #     1250.
+        #     0.
+        #     2500.
+        #     0.
+        #     -2.850133358359352
+        #     0.
+        # ]
+        # œ_init = [6.764425942881095e6, 128.2935876689542, 5.313179817033652e10, 0.7853981633974483, 0.0, 0.0]
+
+        """ test case 1"""
         # x_init = [
         #     500 / r_max
         #     0.  / r_max
         #     1000  / r_max
         #     -0.0 / v_max
-        #     -1.1477144029190813/ v_max
+        #     -1.03486 / v_max
         #     -0.0 / v_max
-        #     10.0 / m_max
         # ]
 
         # x_final = [
         #     500 / r_max
         #     0.  / r_max
         #     1000  / r_max
-        #     -0.0 / v_max
-        #     -0.01/ v_max
-        #     -0.0 / v_max
-        #     9.9 / m_max
-        # ]
-
-        # œ_init = [
-        #     9.494477835790528e6
-        #     3926.0787967853134
-        #     6.865970128328228e10
         #     0.0
-        #     0.17453292519943295
-        #     1.5714453463008868
+        #     -1.03564 /v_max 
+        #     -1.05058/v_max
         # ]
 
+        # œ_init = [7.199999999999999e6, 5.29819064670139e-13, 5.61864351661502e10, 1.1071478656733509, 0.0, 0.7853981633974483]
+        
+        """ test case 2"""
+        # x_init = [
+        #     500 / r_max
+        #     0.  / r_max
+        #     866.0254  / r_max
+        #     -0.0 / v_max
+        #     -1. / v_max
+        #     0. / v_max
+        # ]
+
+        # x_final = [
+        #     1000. / r_max
+        #     0.  / r_max
+        #     1732.1  / r_max
+        #     0.0 / v_max
+        #     2. / v_max 
+        #     0 / v_max
+        # ]
+
+        # œ_init = [7.0929e6, 0.0, 5.31983111065273e10, 0.7853981633974483, 0.7853981633974483, 0.5235987755982988]
+        
         # dynamic equation of motion
         @variables t du[1:dims.nx] u[1:dims.nx] p[1:params.np+dims.nx+dims.nu] real=true
         du = collect(du)
@@ -199,12 +262,12 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
             f_base!(dx, x, p, t)
         end
 
-        f(x, params, t) = begin
-            dx = zeros(dims.nx)
-            p = get_ode_input(x, params, t)
-            f_base!(dx, x, p, t)
-            return dx
-        end
+        # f(x, params, t) = begin
+        #     dx = zeros(dims.nx)
+        #     p = get_ode_input(x, params, t)
+        #     f_base!(dx, x, p, t)
+        #     return dx
+        # end
 
         # derivative of dynamics
         symbolic_∇ₓf! = Symbolics.jacobian(du, u)
@@ -258,7 +321,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
             fc!,
             empty,
             empty,
-            empty,
+            h,
             params
         )
     end
@@ -277,11 +340,9 @@ The dynamic equation of motion.
 - `t`: time
 """
 function symbolic_dynamics!(dx, x, p, t)
-
     # unpack parameters
     (r_max, v_max, m_max, T_max,
-        Re, μ, J2, g, k_J2, Isp, r, vx, h, i, Ω, θ, u1, u2, u3) = p
-    u = [u1, u2, u3]
+        Re, μ, J2, g, k_J2, Isp, r, vx, h, i, Ω, θ, ux, uy, uz) = p
 
     xj = copy(x[1]) * r_max
     yj = copy(x[2]) * r_max
@@ -291,25 +352,27 @@ function symbolic_dynamics!(dx, x, p, t)
     żj = copy(x[6]) * v_max
     # mj = copy(x[7]) * m_max
     
-    η² = μ / r^3 + k_J2 / r^5 - 5 * k_J2 * sin(i)^2 * sin(θ)^2 / r^5
+    # precompute constants from chief dynamics
+    n² = μ / r^3 + k_J2 / r^5 - 5 * k_J2 * sin(i)^2 * sin(θ)^2 / r^5
     ζ = 2 * k_J2 * sin(i) * sin(θ) / r^4
-    ω̇x = -k_J2 * sin(2 * i) * cos(θ) / r^5 
-    ω̇z = -2 * h * vx / r^3 - k_J2 * sin(i)^2 * sin(2 * θ) / r^5
     ωx = -k_J2 * sin(2 * i) * sin(θ) / (h * r^3) 
     ωz = h / r^2
     ωy = 0
+    ω̇x = -k_J2 * sin(2 * i) * cos(θ) / r^5  + 3 * vx * k_J2 * sin(2 * i) * sin(θ) / (r^4 * h) -
+        8 * k_J2^2 * sin(i)^3 * cos(i) * sin(θ)^2 * cos(θ) / (r^6 * h^2)
+    ω̇z = -2 * h * vx / r^3 - k_J2 * sin(i)^2 * sin(2 * θ) / r^5
 
     # deputy Dynamics ẋ
     rj = sqrt((r + xj)^2 + yj^2 + zj^2)
     rjz = (r + xj) * sin(i) * sin(θ) + yj * sin(i) * cos(θ) + zj * cos(i)
     ζj = 2 * k_J2 * rjz / rj^5
-    η²j = μ / rj^3 + k_J2 / rj^5 - 5 * k_J2 * rjz^2 / rj^7
+    n²j = μ / rj^3 + k_J2 / rj^5 - 5 * k_J2 * rjz^2 / rj^7
 
-    v̇1 = 2 * ẏj * ωz - xj * (η²j - ωz^2) + yj * ω̇z - zj * ωx * ωz - (ζj - ζ) * sin(i) * sin(θ) - 
-        r * (η²j - η²) 
-    v̇2 = -2 * ẋj * ωz + 2 * żj * ωx - xj * ω̇z - yj * (η²j - ωz^2 - ωx^2) + zj * ω̇x - 
+    ẍ = 2 * ẏj * ωz - xj * (n²j - ωz^2) + yj * ω̇z - zj * ωx * ωz - (ζj - ζ) * sin(i) * sin(θ) - 
+        r * (n²j - n²) 
+    ÿ = -2 * ẋj * ωz + 2 * żj * ωx - xj * ω̇z - yj * (n²j - ωz^2 - ωx^2) + zj * ω̇x - 
         (ζj - ζ) * sin(i) * cos(θ)
-    v̇3 = -2 * ẏj * ωx - xj * ωx * ωz - yj * r_max * ω̇x - zj * (η²j - ωx^2) - 
+    z̈ = -2 * ẏj * ωx - xj * ωx * ωz - yj * ω̇x - zj * (n²j - ωx^2) - 
         (ζj - ζ) * cos(i) 
     mj = 1
     # nonlinear equations of motion 
@@ -317,12 +380,17 @@ function symbolic_dynamics!(dx, x, p, t)
         ẋj / r_max
         ẏj / r_max
         żj / r_max 
-        (v̇1 / v_max + u[1]) / mj 
-        (v̇2 / v_max + u[2]) / mj
-        (v̇3 / v_max + u[3]) / mj 
+        ẍ / v_max + ux / mj 
+        ÿ / v_max + uy / mj
+        z̈ / v_max + uz / mj 
         # 0
     ]
 end
+
+
+"""
+    fc(x, p, t)
+"""
 
 function fc(x, p, t)
     dx = zeros(length(x))
@@ -331,7 +399,7 @@ function fc(x, p, t)
 end 
 
 """
-    fc(x, p, t)
+    fc!(dx, x, p, t)
 """
 
 function fc!(dx::Vector, œ::Vector, p::ODEParameter, t::Float64)
@@ -347,11 +415,10 @@ function fc!(dx::Vector, œ::Vector, p::ODEParameter, t::Float64)
     Ω = (copy(œ[5])) # RAAN
     θ = (copy(œ[6])) # argument of latitude, theta
 
-
     # chief dynamics æ̇; æ̇_dim = 6
     dx[1:6] = T_max * [
-        œ[2]
-        -μ / r^2 + h^2 / r^3 - k_J2 / r^4 * (1 - 3 * sin(i)^2 * sin(θ)^2)
+        vx
+        -μ / r^2 + h^2 / r^3 - k_J2 * (1 - 3 * sin(i)^2 * sin(θ)^2) / r^4
         -k_J2 * sin(i)^2 * sin(2 * θ) / r^3 
         -k_J2 * sin(2 * i) * sin(2 * θ) / (2 * h * r^3) 
         -2 * k_J2 * cos(i) * sin(θ)^2 / (h * r^3) 
@@ -384,6 +451,14 @@ function get_ode_input(x, p, t)
     else
         œ = U_md(t)
     end
-
     return [p.params; œ; u]
+end
+
+function h(x::Vector, v::Vector)
+    val = [
+        norm(x[1:3])
+        atan(x[1]/x[2])
+        atan(x[3]/norm(x[1:2]))
+    ]
+    return val
 end

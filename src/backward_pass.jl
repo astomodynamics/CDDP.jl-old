@@ -133,9 +133,6 @@ function backward_pass_ddp!(
 
     # backward pass
     for k in length(ell_arr):-1:1
-        println(∇ₓf_arr[k])
-        println(∇ᵤf_arr[k])
-        println(∇ₓV)
         # Q = ell_arr[k] + V
         ∇ₓQ = ∇ₓell_arr[k] + ∇ₓf_arr[k]' * ∇ₓV
         ∇ᵤQ = ∇ᵤell_arr[k] + ∇ᵤf_arr[k]' * ∇ₓV
