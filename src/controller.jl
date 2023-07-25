@@ -27,6 +27,7 @@ mutable struct MPPIProblemCPU <: AbstractMPPIProblem
     x_final::Vector{Float64} # terminal state
 
     X_ref # reference trajectory
+    U_md # measured disturbance
     function MPPIProblemCPU(
         model;
         tf=model.tf,
@@ -38,6 +39,7 @@ mutable struct MPPIProblemCPU <: AbstractMPPIProblem
         x_init=model.x_init,
         x_final=model.x_final,
         X_ref=nothing,
+        U_md=nothing,
         ) 
         new(
             model,
@@ -49,7 +51,8 @@ mutable struct MPPIProblemCPU <: AbstractMPPIProblem
             dyn_funcs,
             x_init,
             x_final,
-            X_ref
+            X_ref,
+            U_md,
         )
     end
 end
@@ -137,21 +140,33 @@ function solve_mppi(
     end
     
     X_arr = zeros(nx, tN+1) # state trajectory array
-    # δu = rand(dist, nu, tN, K) # sampling noise
+
+    if isnothing(δu)
+        δu = rand(dist, 1, tN, K) # sampling noise
+    end
+
+    if isnothing(X_ref)
+        X_ref = zeros(nx, tN+1) # reference trajectory
+    end
 
     # TODO: implement GPU acceleration or parallelization
     for k in 1:K
         X_arr[:,1] = x_init
         
         for i in 1:tN
-            uk = U[:,i] + δu[:, i, k]
+            uk = U[:,i] + δu[:, i, k][1]
             
             # uk = clamp.(uk, -100, 100) # clamp the value for control constraints
             t = (i - 1) * dt
-            p = ODEParameter(params=params_arr, U_ref=uk)
+            
+            if isnothing(prob.U_md)
+                p = ODEParameter(params=params_arr, U_ref=uk)
+            else
+                p = ODEParameter(params=params_arr, U_ref=uk, U_md=prob.U_md[:,k])
+            end
             X_arr[:, i+1] = X_arr[:, i] + rk4_step(dyn_funcs.f, X_arr[:, i], p, t, dt) * dt
 
-            S[k] += cost_funcs.ell(X_arr[:, i], X_ref[:, i]) + λ * U[:, i]' * Σ * δu[:, i, k]
+            S[k] += cost_funcs.ell(X_arr[:, i], X_ref[:, i]) + λ * U[:, i]' * Σ * δu[:, i, k][1]
         end
         S[k] += cost_funcs.ϕ(X_arr[:, tN+1], X_ref[:, tN+1])
     end
@@ -166,7 +181,7 @@ function solve_mppi(
 
     # compute control from optimal distribution
     for i in 1:tN
-        U[:,i] += δu[:,i,:] * w
+        U[:,i] += δu[:,i,:][1] * w
     end
 
     u_out = U[:, 1]

@@ -76,7 +76,7 @@ function get_trajectory_cost(
     J = 0
     for k in 0:tN-1
         t = k*dt
-        if isequal(X_ref, nothing)
+        if isnothing(X_ref)
             J += ell(X(t), U(t), x_ref=zeros(axes(X(t), 1))) * dt
         else
             J += ell(X(t), U(t), x_ref=X_ref(t)) * dt

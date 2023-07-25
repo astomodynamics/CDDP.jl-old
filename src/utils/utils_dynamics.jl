@@ -4,9 +4,10 @@ mutable struct ModelDimension <: AbstractDDPParameter
     nu::Int64 # control dimension
     nw::Int64 # noise dimension
     nλ::Int64 # constraint dimension
+    nv::Int64 # measurement noise dimension
 
-    function ModelDimension(;nx=0, nu=0, nw=0, nλ=0)
-        new(nx, nu, nw, nλ)
+    function ModelDimension(;nx=0, nu=0, nw=0, nλ=0, nv=0)
+        new(nx, nu, nw, nλ, nv)
     end
 end
 
@@ -106,13 +107,16 @@ struct ODE parameters
 struct ODEParameter <: AbstractDDPParameter
     params::Any
     U_ref::Any
+    U_md::Any
     X_ref::Any
+
     l::Any
     L::Any
 
     function ODEParameter(;
         params=nothing,
         U_ref=nothing,
+        U_md=nothing,
         X_ref=nothing,
         l=nothing,
         L=nothing,
@@ -120,6 +124,7 @@ struct ODEParameter <: AbstractDDPParameter
         new(
             params,
             U_ref,
+            U_md,
             X_ref,
             l,
             L,
@@ -131,29 +136,29 @@ end
 
 """
 
-function get_ode_input(x, p, t)
-    δx = zeros(size(x,1))
-    U_ref = p.U_ref
-    X_ref = p.X_ref
-    u = nothing
+# function get_ode_input(x, p, t)
+#     δx = zeros(size(x,1))
+#     U_ref = p.U_ref
+#     X_ref = p.X_ref
+#     u = nothing
 
-    # check if the reference control is array or function
-    if isa(U_ref, Vector)
-        u = U_ref 
-    else
-        # u = p.U_ref[trunc(Int, t/model.dt)+1]
-        u = U_ref(t)
-    end
+#     # check if the reference control is array or function
+#     if isa(U_ref, Vector)
+#         u = U_ref 
+#     else
+#         # u = p.U_ref[trunc(Int, t/model.dt)+1]
+#         u = U_ref(t)
+#     end
 
-    # if the reference trajectory and feedback gains are given, DO feedback control
-    if !isequal(X_ref, nothing)
-        x_ref = X_ref(t)
-        δx = x - x_ref
-        u = Uref(t)  + p.L(t) * δx
-    end
+#     # if the reference trajectory and feedback gains are given, DO feedback control
+#     if !isequal(X_ref, nothing)
+#         x_ref = X_ref(t)
+#         δx = x - x_ref
+#         u = Uref(t)  + p.L(t) * δx
+#     end
 
-    return [p.params; u]
-end
+#     return [p.params; u]
+# end
 
 
 

@@ -30,6 +30,7 @@ struct DDPProblem <: AbstractDDPProblem
     x_final::Vector{Float64} # terminal state
 
     X_ref # reference trajectory
+    U_md # measured disturbance
 
     function DDPProblem(;
         model,
@@ -42,6 +43,7 @@ struct DDPProblem <: AbstractDDPProblem
         x_init=model.x_init,
         x_final=model.x_final,
         X_ref=nothing,
+        U_md=nothing,
         ) 
         new(
             model,
@@ -53,7 +55,8 @@ struct DDPProblem <: AbstractDDPProblem
             dyn_funcs,
             x_init,
             x_final,
-            X_ref
+            X_ref,
+            U_md
         )
     end
 end
@@ -89,6 +92,8 @@ struct CDDPProblem <: AbstractDDPProblem
     c_final::Function # termianl constraint function
 
     X_ref # reference trajectory
+    U_md # measured disturbance
+
     function CDDPProblem(;
         model::AbstractDynamicsModel,
         tf::Float64=model.tf,
@@ -106,6 +111,7 @@ struct CDDPProblem <: AbstractDDPProblem
         c::Function=model.c,
         c_final::Function=model.c_final,  
         X_ref=nothing,
+        U_md=nothing,
         ) 
         new(
             model,
@@ -123,7 +129,8 @@ struct CDDPProblem <: AbstractDDPProblem
             x_final,
             c,
             c_final,
-            X_ref
+            X_ref,
+            U_md
         )
     end
 end
