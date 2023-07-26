@@ -4,10 +4,11 @@ mutable struct ModelDimension <: AbstractDDPParameter
     nu::Int64 # control dimension
     nw::Int64 # noise dimension
     nλ::Int64 # constraint dimension
+    ny::Int64 # observation dimension
     nv::Int64 # measurement noise dimension
 
-    function ModelDimension(;nx=0, nu=0, nw=0, nλ=0, nv=0)
-        new(nx, nu, nw, nλ, nv)
+    function ModelDimension(;nx=0, nu=0, nw=0, nλ=0, ny=0, nv=0)
+        new(nx, nu, nw, nλ, ny, nv)
     end
 end
 
@@ -104,7 +105,7 @@ end
 struct ODE parameters
     
 """
-struct ODEParameter <: AbstractDDPParameter
+mutable struct ODEParameter <: AbstractDDPParameter
     params::Any
     U_ref::Any
     U_md::Any
