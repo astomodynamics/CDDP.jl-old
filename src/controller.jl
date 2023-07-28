@@ -155,7 +155,7 @@ function solve_mppi(
         
         for i in 1:tN
             uk = U[:,i] + δu[:, i, k][1]
-            
+
             # uk = clamp.(uk, -100, 100) # clamp the value for control constraints
             t = (i - 1) * dt
             
@@ -181,6 +181,7 @@ function solve_mppi(
 
     # compute control from optimal distribution
     for i in 1:tN
+        @printf("δu[:,i,:]: %s\n", δu[:,i,:])
         U[:,i] += δu[:,i,:][1] * w
     end
 

@@ -446,12 +446,13 @@ function get_ode_input(x, p, t)
     return [p.params; œ; u]
 end
 
-function h( x::Vector, v::Vector)
+function h(x::Vector, v::Vector)
 
     y = [
         norm(x[1:3])
         atan(x[1]/x[2])
         atan(x[3]/norm(x[1:2]))
     ]
+    return y
 end
 

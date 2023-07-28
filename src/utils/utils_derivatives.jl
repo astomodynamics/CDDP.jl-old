@@ -33,7 +33,7 @@ function get_ode_derivatives(
     x::Vector{Float64},
     u::Vector{Float64},
     params_arr;
-    u_md::Vector{Float64}=nothing,
+    u_md=nothing,
     isilqr=true,
 )   
 

@@ -64,9 +64,6 @@ mutable struct EKFProblem
     Σ_proc
     Σ_meas
 
-    dist_proc
-    dist_meas
-
     function EKFProblem(
         dt::Float64,
         dims::ModelDimension,
@@ -77,9 +74,8 @@ mutable struct EKFProblem
         Σ_proc,
         Σ_meas,
     )
-        dist_proc = MvNormal(μ_proc, Σ_proc)
-        dist_meas = MvNormal(μ_meas, Σ_meas)
-        
+
+
         new(
             dt,
             dims,
@@ -89,67 +85,11 @@ mutable struct EKFProblem
             μ_meas,
             Σ_proc,
             Σ_meas,
-            dist_proc,
-            dist_meas,
         )
     end
 end
 
 
-# function KFProblem(
-#     model::AbstractDynamicsModel,
-# )
-
-#     dt = model.dt
-#     tN = model.tN
-#     x_dim = model.x_dim
-#     u_dim = model.u_dim
-#     w_dim = x_dim
-#     v_dim = 3
-
-#     x_init = model.x_init
-#     # if tr(model.P_cov) == 0
-#     #     P = I + zeros(x_dim, x_dim)
-#     # else
-#     #     P = model.P_cov
-#     # end
-#     Q_pro = Diagonal(1e+0 * ones(w_dim))
-#     R_meas = Diagonal(1e+0 * ones(v_dim))
-#     P = I + zeros(x_dim, x_dim)
-
-#     mean_pro = 0.0
-#     variance_pro = 1e-7
-#     mean_meas = 0.0
-#     variance_meas = 1e-4
-#     dist_pro = Normal(mean_pro, sqrt(variance_pro))
-#     dist_meas = Normal(mean_meas, sqrt(variance_meas))
-
-#     P_arr = zeros(x_dim,x_dim,tN)
-
-#     Q = Q_pro
-#     R = R_meas
-
-#     mean = mean_pro
-#     variance = variance_pro
-#     distribution = dist_pro
-
-#     islinear = false
-#     KFProblem(
-#         dt,
-#         tN,
-#         x_dim,
-#         u_dim,
-#         x_init,
-#         P,
-#         P_arr,
-#         Q,
-#         R,
-#         mean,
-#         variance,
-#         distribution,
-#         islinear,
-#     )
-# end
 
 """
 """
@@ -173,6 +113,7 @@ function solve_EKF(
     X_ref=nothing,
     u_md=nothing,
 )
+    nx, nu, nw, nv = model.dims.nx, model.dims.nu, model.dims.nw, model.dims.nv
     Q = prob.Σ_proc
     R = prob.Σ_meas
     
@@ -185,19 +126,24 @@ function solve_EKF(
 
     x̂ = x̂_apr + rk4_step(prob.f,  x̂_apr, p, t, dt) * dt # state prediction
 
+    ∇ₓf = zeros(nx,nx)
     if isnothing(u_md)
-        ∇ₓf, ∇ᵤf = get_ode_derivatives(prob.f, x̂, u, model.params.arr) # partial derivative of dynamics
+        ∇ₓf, _ = get_ode_derivatives(prob.f, x̂_apr, u, model.params.arr) # partial derivative of dynamics
     else
-        ∇ₓf, ∇ᵤf = get_ode_derivatives(prob.f, x̂, u, model.params.arr, u_md=u_md) # partial derivative of dynamics
+        ∇ₓf, _ = get_ode_derivatives(prob.f, x̂_apr, u, model.params.arr, u_md=u_md) # partial derivative of dynamics
     end
 
     F =  I + ∇ₓf * dt # state transition matrix 
-    gw = I + zeros(6,6)
-    L = gw
+    # @printf("∇ₓf : %s\n", ∇ₓf)
+
+
+    G = [zeros(3,3); Matrix{Float64}(I(3))]
+    L = I + zeros(nx, nx) * dt
+    # L = G * dt 
     P̂ = F * P̂_apr * F' + L * Q * L' # covariance matrix prediction
-    
-    H = get_obs_derivative(prob.h, x̂, zeros(3)) # partial derivative of observation
-    y = z - prob.h(x̂, zeros(3)) # measurement residual
+    H = get_obs_derivative(prob.h, x̂, zeros(nv)) # partial derivative of observation
+    # @printf("H: %s\n", H)
+    y = z - prob.h(x̂, zeros(nv)) # measurement residual
     S = H * P̂ * H' + R
     K = P̂ * H' * inv(S) # Kalman gain
     x̂_new = x̂ + K * y # state estimate update

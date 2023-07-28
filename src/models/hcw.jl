@@ -7,6 +7,7 @@
 using LinearAlgebra
 using Distributions
 using Random
+using Symbolics
 
 export HCW
 
@@ -22,8 +23,10 @@ struct DynamicsParameter
         r_scale=200,
         v_scale=1,
         np=3,
-        arr=[ω, r_scale, v_scale],
+        arr=[r_scale, v_scale],
     )
+        ω = sqrt(μ/a^3)
+        arr = [ω, r_scale, v_scale]
         new(
             ω,
             r_scale,
@@ -54,12 +57,14 @@ struct HCW <: AbstractDynamicsModel
     ∇G::Function # derivative of noise matrix
     ∇²G::Function # second derivative of noise matrix
 
+    h::Function # observation function
+
     # dynamics constants
     params::DynamicsParameter
     
     function HCW()
-        dims = ModelDimension(nx=2, nu=1)
-    
+        dims = ModelDimension(nx=6, nu=3, nw=6, nv=3)
+        params = DynamicsParameter()
         r_scale = 200
         v_scale = 1
     
@@ -93,6 +98,13 @@ struct HCW <: AbstractDynamicsModel
         f!(dx, x, params, t) = begin
             p = get_ode_input(x, params, t)
             f_base!(dx, x, p, t)
+        end
+
+        f(x, params, t) = begin
+            p = get_ode_input(x, params, t)
+            dx = zeros(size(x,1))
+            f_base!(dx, x, p, t)
+            return dx
         end
 
         # derivative of dynamics
@@ -145,6 +157,7 @@ struct HCW <: AbstractDynamicsModel
             empty,
             empty,
             empty,
+            h,
             params,
         )
     end
@@ -152,24 +165,21 @@ end
 
 function symbolic_dynamics!(du, u, p, t)
     x, y, z, ẋ, ẏ, ż = u
-    ω, r_scale, v_scale, ctrl = p
-    r_scale = model.r_scale
-    v_scale = model.v_scale
-    ω = model.ω
+    ω, r_scale, v_scale, ux, uy, uz = p
 
-    x = x/r_scale
-    y = y/r_scale
-    z = z/r_scale
-    ẋ = ẋ/v_scale
-    ẏ = ẏ/v_scale
-    ż = ż/v_scale
-
-    du[1] = ẋ
-    du[2] = ẏ
-    du[3] = ż
-    du[4] = (3*ω^2*x + 2*ω*ẏ)/v_scale + ctrl[1]
-    du[5] = -2*ω*ẋ/v_scale + ctrl[2]
-    du[6] = -ω^2*ż/v_scale + ctrl[3]
+    x = x * r_scale
+    y = y * r_scale
+    z = z * r_scale
+    ẋ = ẋ * v_scale
+    ẏ = ẏ * v_scale
+    ż = ż * v_scale
+    
+    du[1] = ẋ / r_scale
+    du[2] = ẏ / r_scale
+    du[3] = ż / r_scale
+    du[4] = (3*ω^2*x + 2*ω*ẏ)/v_scale + ux
+    du[5] = -2*ω*ẋ/v_scale + uy
+    du[6] = -ω^2*ż/v_scale + uz
 end
 
 
@@ -241,10 +251,27 @@ end
 #     """<<< edit end """
 #     return dx
 # end
+function get_ode_input(x, p, t)
+    U = p.U_ref
+    X_ref = p.X_ref
+    U_md = p.U_md
+    u = nothing
+    œ = nothing
+
+    if isnothing(U)
+        u = nothing
+    elseif isa(U, Vector)
+        # check if the reference control is array or function
+        u = U
+    else
+        u = U(t)
+    end
+
+    return [p.params; u]
+end
 
 
-
-function h(x::Vector, t::Float64)
+function h(x::Vector, v)
     y = [
         norm(x[1:3])
         atan(x[1]/x[2])
