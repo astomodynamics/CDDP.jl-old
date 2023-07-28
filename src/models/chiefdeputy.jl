@@ -89,7 +89,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     
     function ChiefDeputy(;)
 
-        dims = ModelDimension(nx=6, nu=3)
+        dims = ModelDimension(nx=6, nu=3, nw=6, ny=3, nv=3)
         
         params = DynamicsParameter()
 
@@ -159,36 +159,28 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
         # ]
 
         """ elliptical orbit (GTO)"""
-        x_init = [
-            100 / r_max
-            0.  / r_max
-            200  / r_max
-            -0.0 / v_max
-            -0.2295262475850926 / v_max
-            -0.0 / v_max
-            # 500.0 / m_max
-        ]
-
-        x_final = [
-            20 / r_max
-            0.  / r_max
-            40  / r_max
-            -0.0 / v_max
-            -0.04590524951701853/ v_max
-            -0.0 / v_max
-            #  400/ m_max
-        ]
-
-        # mean orbital elements
-        # œ_init = [
-        #     6.878000000000001e6
-        #     6.526822752634004e-26
-        #     6.865970128328227e10
-        #     0.0
-        #     0.0
-        #     1.5625398808623323e-29
+        # x_init = [
+        #     100 / r_max
+        #     0.  / r_max
+        #     200  / r_max
+        #     -0.0 / v_max
+        #     -0.2295262475850926 / v_max
+        #     -0.0 / v_max
+        #     # 500.0 / m_max
         # ]
-        œ_init =[6.873777579835884e6, -0.002229583937249078, 6.8640542098738884e10, 0.05001634091439573, 0.00026150952573454346, 0.34880515073050467]
+
+        # x_final = [
+        #     20 / r_max
+        #     0.  / r_max
+        #     40  / r_max
+        #     -0.0 / v_max
+        #     -0.04590524951701853/ v_max
+        #     -0.0 / v_max
+        #     #  400/ m_max
+        # ]
+
+        # # osculating orbital elements
+        # œ_init =[6.873777579835884e6, -0.002229583937249078, 6.8640542098738884e10, 0.05001634091439573, 0.00026150952573454346, 0.34880515073050467]
 
         """ test case 0"""
         # x_init = [
@@ -262,12 +254,12 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
             f_base!(dx, x, p, t)
         end
 
-        # f(x, params, t) = begin
-        #     dx = zeros(dims.nx)
-        #     p = get_ode_input(x, params, t)
-        #     f_base!(dx, x, p, t)
-        #     return dx
-        # end
+        f(x, params, t) = begin
+            dx = zeros(dims.nx)
+            p = get_ode_input(x, params, t)
+            f_base!(dx, x, p, t)
+            return dx
+        end
 
         # derivative of dynamics
         symbolic_∇ₓf! = Symbolics.jacobian(du, u)
@@ -455,10 +447,12 @@ function get_ode_input(x, p, t)
 end
 
 function h(x::Vector, v::Vector)
-    val = [
+
+    y = [
         norm(x[1:3])
         atan(x[1]/x[2])
         atan(x[3]/norm(x[1:2]))
     ]
-    return val
+    return y
 end
+

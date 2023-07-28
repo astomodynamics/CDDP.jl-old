@@ -40,6 +40,7 @@ export
     initialize_trajectory,
     simulate_trajectory,
     get_ode_derivatives,
+    get_obs_derivative,
     get_instant_cost_derivatives,
     get_terminal_cost_derivatives,
     get_instant_const_derivative,
@@ -103,6 +104,7 @@ export
     solve_KF,
     EKFProblem,
     solve_EKF
+include("./filter.jl")
 
 
 end # module CDDP

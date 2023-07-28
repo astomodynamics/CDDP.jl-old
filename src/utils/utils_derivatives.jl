@@ -29,17 +29,17 @@ end
 # NOTE: there might be a more efficient way to find hessian matrix
 """
 function get_ode_derivatives(
-    problem::AbstractDDPProblem,
+    f,
     x::Vector{Float64},
-    u::Vector{Float64};
-    isilqr=false,
+    u::Vector{Float64},
+    params_arr;
+    u_md=nothing,
+    isilqr=true,
 )   
 
     x_dim = length(x)
     u_dim = length(u)
-    dx = zeros(x_dim)
     t = 0.0
-    dyn_funcs = problem.dyn_funcs
 
     ∇ₓf = zeros(x_dim, x_dim)
     ∇ᵤf = zeros(x_dim, u_dim)
@@ -48,13 +48,18 @@ function get_ode_derivatives(
         # ForwardDiff.jacobian!(∇ᵤf, (dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
         # ∇ₓf = ForwardDiff.jacobian((dx,x) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, x)
         # ∇ᵤf = ForwardDiff.jacobian((dx,u) -> problem.f!(dx, x, ODEParams(problem.model, u, isarray=true), t), dx, u)
-        ∇ₓf = ForwardDiff.jacobian(x -> dyn_funcs.f(x, ODEParameter(params=problem.model.params.arr, U_ref=u), t), x)
-        ∇ᵤf = ForwardDiff.jacobian(u -> dyn_funcs.f(x,  ODEParameter(params=problem.model.params.arr, U_ref=u), t), u)
+        if isnothing(u_md)
+            ∇ₓf = ForwardDiff.jacobian(x -> f(x, ODEParameter(params=params_arr, U_ref=u), t), x)
+            ∇ᵤf = ForwardDiff.jacobian(u -> f(x,  ODEParameter(params=params_arr, U_ref=u), t), u)
+        else
+            ∇ₓf = ForwardDiff.jacobian(x -> f(x, ODEParameter(params=params_arr, U_ref=u, U_md=u_md), t), x)
+            ∇ᵤf = ForwardDiff.jacobian(u -> f(x, ODEParameter(params=params_arr, U_ref=u, U_md=u_md), t), u)
+        end
         
         return ∇ₓf, ∇ᵤf
     else
-        ∇ₓf = ForwardDiff.jacobian(x -> dyn_funcs.f(x, ODEParameter(params=problem.model.params.arr, U_ref=u), t), x)
-        ∇ᵤf = ForwardDiff.jacobian(u -> dyn_funcs.f(x, ODEParameter(params=problem.model.params.arr, U_ref=u), t), u)
+        ∇ₓf = ForwardDiff.jacobian(x -> f(x, ODEParameter(params=problem.model.params.arr, U_ref=u), t), x)
+        ∇ᵤf = ForwardDiff.jacobian(u -> f(x, ODEParameter(params=problem.model.params.arr, U_ref=u), t), u)
         ∇ₓₓf = zeros(x_dim, x_dim, x_dim)
         ∇ₓᵤf = zeros(x_dim, x_dim, u_dim)
         ∇ᵤᵤf = zeros(x_dim, u_dim, u_dim)
@@ -63,6 +68,17 @@ function get_ode_derivatives(
         # ∇ᵤᵤf = u_hessian(problem, x, u, t)
         return ∇ₓf, ∇ᵤf, ∇ₓₓf, ∇ₓᵤf, ∇ᵤᵤf
     end 
+end
+
+"""
+"""
+function get_obs_derivative(
+    h,
+    x::Vector, 
+    v::Vector
+    )
+    H = ForwardDiff.jacobian(x -> h(x,v), x)
+    return H
 end
 
 
