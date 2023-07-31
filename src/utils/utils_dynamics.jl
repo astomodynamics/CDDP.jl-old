@@ -67,6 +67,7 @@ end
 struct MPPIDynamicsFunction <: AbstractMPPIFunction
     f::Function # dynamic equation of motion without noise (out-of-place)
     f!::Function # dynamic equation of motion without noise (in-place)
+    ∇f::Function # derivative of dynamics
 
 
     G::Function # noise matrix (out-of-place)
@@ -75,6 +76,7 @@ struct MPPIDynamicsFunction <: AbstractMPPIFunction
     function MPPIDynamicsFunction(;
         f=empty, 
         f! =empty, 
+        ∇f=empty,
         G=empty, 
         G! =empty,
     )
@@ -82,6 +84,7 @@ struct MPPIDynamicsFunction <: AbstractMPPIFunction
         new(
             f,
             f!,
+            ∇f,
             G,
             G!,
         )
@@ -189,6 +192,19 @@ function rk4_step(
     return (k1 + 2 * k2 + 2 * k3 + k4)/6
 end
 
+function rk4_step_cuda(
+    f::Function,
+    x::Vector{Float32},
+    p::ODEParameter,
+    t::Float32,
+    h::Float32,
+)
+    k1 = f(x, p, t+0.0)
+    k2 = f(x + h / 2.0 * k1, p, t + h / 2.0)
+    k3 = f(x + h / 2.0 * k2, p, t + h / 2.0)
+    k4 = f(x + h * k3, p, t + h)
+    return (k1 + 2 * k2 + 2 * k3 + k4)/6
+end
 
 function rk2_step(
     f::Function,
@@ -202,6 +218,17 @@ function rk2_step(
     return (k1 + k2)/2
 end
 
+function rk2_step_cuda(
+    f::Function,
+    x::Vector{Float32},
+    p::ODEParameter,
+    t::Float32,
+    h::Float32,
+)
+    k1 = f(x, p, t+0.0)
+    k2 = f(x + h * k1, p, t + h)
+    return (k1 + k2)/2
+end
 
 function euler_step(
     f::Function,
@@ -209,6 +236,16 @@ function euler_step(
     p::ODEParameter,
     t::Float64,
     h::Float64,
+)
+    return f(x, p, t)
+end
+
+function euler_step_cuda(
+    f::Function,
+    x::Vector{Float32},
+    p::ODEParameter,
+    t::Float32,
+    h::Float32,
 )
     return f(x, p, t)
 end

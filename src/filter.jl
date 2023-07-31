@@ -57,7 +57,9 @@ mutable struct EKFProblem
     dims::ModelDimension
 
     f # dynamics function
+    ∇f # dynamics function derivative
     h # measurement function
+    ∇h # measurement function derivative
 
     μ_proc
     μ_meas
@@ -68,19 +70,22 @@ mutable struct EKFProblem
         dt::Float64,
         dims::ModelDimension,
         f,
+        ∇f,
         h,
+        ∇h,
         μ_proc,
         μ_meas,
         Σ_proc,
         Σ_meas,
     )
 
-
         new(
             dt,
             dims,
             f,
+            ∇f,
             h,
+            ∇h,
             μ_proc,
             μ_meas,
             Σ_proc,
@@ -128,10 +133,23 @@ function solve_EKF(
 
     ∇ₓf = zeros(nx,nx)
     if isnothing(u_md)
+        if isnothing(prob.∇f) 
+            ∇ₓf, _ = get_ode_derivatives(prob.f, x̂_apr, u, model.params.arr) # partial derivative of dynamics
+        else
+            ∇ₓf, _ = prob.∇f(x̂_apr, p)
+        end
         ∇ₓf, _ = get_ode_derivatives(prob.f, x̂_apr, u, model.params.arr) # partial derivative of dynamics
+        # @printf("∇ₓf : %s\n", ∇ₓf)
     else
-        ∇ₓf, _ = get_ode_derivatives(prob.f, x̂_apr, u, model.params.arr, u_md=u_md) # partial derivative of dynamics
+        if isnothing(prob.∇f) 
+            ∇ₓf, _ = get_ode_derivatives(prob.f, x̂_apr, u, model.params.arr, u_md=u_md) # partial derivative of dynamics
+        else
+            ∇ₓf, _ = prob.∇f(x̂_apr, p)
+        end
+        # @printf("∇ₓf : %s\n", ∇ₓf)
     end
+
+
 
     F =  I + ∇ₓf * dt # state transition matrix 
     # @printf("∇ₓf : %s\n", ∇ₓf)
@@ -141,9 +159,12 @@ function solve_EKF(
     L = I + zeros(nx, nx) * dt
     # L = G * dt 
     P̂ = F * P̂_apr * F' + L * Q * L' # covariance matrix prediction
+    # @printf("P̂: %s\n", P̂)
     H = get_obs_derivative(prob.h, x̂, zeros(nv)) # partial derivative of observation
     # @printf("H: %s\n", H)
+
     y = z - prob.h(x̂, zeros(nv)) # measurement residual
+    # @printf("h: %s\n", prob.h(x̂, zeros(nv)))
     S = H * P̂ * H' + R
     K = P̂ * H' * inv(S) # Kalman gain
     x̂_new = x̂ + K * y # state estimate update

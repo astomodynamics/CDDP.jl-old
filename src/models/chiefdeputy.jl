@@ -78,6 +78,9 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
 
     fc::Function # chief dynamic equation of motion (out-of-place)
     fc!::Function # chief dynamic equation of motion without noise (in place)
+
+    f_cuda::Function # dynamic equation of motion (GPU, Float32)
+    f_cuda!::Function # dynamic equation of motion (GPU, Float32)
     
     G::Function # noise matrix (out-of-place)
     G!::Function # noise matrix (in-place)
@@ -89,7 +92,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     
     function ChiefDeputy(;)
 
-        dims = ModelDimension(nx=6, nu=3, nw=6, ny=3, nv=3)
+        dims = ModelDimension(nx=6, nu=3, nw=6, ny=3, nv=6)
         
         params = DynamicsParameter()
 
@@ -311,6 +314,8 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
             ∇²f,
             fc,
             fc!,
+            f_cuda,
+            f_cuda!,
             empty,
             empty,
             h,
@@ -379,6 +384,59 @@ function symbolic_dynamics!(dx, x, p, t)
     ]
 end
 
+function f_cuda(x, p, t)
+    """ dynamic equation of motion (GPU, Float32)"""
+    dx = zeros(length(x))
+    f_cuda!(dx, x, p, t)
+    return dx
+end
+
+function f_cuda!(dx, x, p, t)
+    """ dynamic equation of motion (GPU, Float32)"""
+    # unpack parameters
+    (r_max, v_max, m_max, T_max,
+        Re, μ, J2, g, k_J2, Isp, r, vx, h, i, Ω, θ, ux, uy, uz) = p
+    
+    xj = CUDA.copy(x[1]) * r_max
+    yj = CUDA.copy(x[2]) * r_max
+    zj = CUDA.copy(x[3]) * r_max
+    ẋj = CUDA.copy(x[4]) * v_max
+    ẏj = CUDA.copy(x[5]) * v_max
+    żj = CUDA.copy(x[6]) * v_max
+
+    # precompute constants from chief dynamics
+    n² = μ / r^3 + k_J2 / r^5 - 5 * k_J2 * CUDA.sin(i)^2 * CUDA.sin(θ)^2 / r^5
+    ζ = 2 * k_J2 * CUDA.sin(i) * CUDA.sin(θ) / r^4
+    ωx = -k_J2 * CUDA.sin(2 * i) * CUDA.sin(θ) / (h * r^3) 
+    ωz = h / r^2
+    ωy = 0
+    ω̇x = -k_J2 * CUDA.sin(2 * i) * CUDA.cos(θ) / r^5  + 3 * vx * k_J2 * CUDA.sin(2 * i) * CUDA.sin(θ) / (r^4 * h) -
+        8 * k_J2^2 * CUDA.sin(i)^3 * CUDA.cos(i) * CUDA.sin(θ)^2 * CUDA.cos(θ) / (r^6 * h^2)
+    ω̇z = -2 * h * vx / r^3 - k_J2 * CUDA.sin(i)^2 * CUDA.sin(2 * θ) / r^5
+
+    # deputy Dynamics ẋ
+    rj = CUDA.sqrt((r + xj)^2 + yj^2 + zj^2)
+    rjz = (r + xj) * CUDA.sin(i) * CUDA.sin(θ) + yj * CUDA.sin(i) * CUDA.cos(θ) + zj * CUDA.cos(i)
+    ζj = 2 * k_J2 * rjz / rj^5
+    n²j = μ / rj^3 + k_J2 / rj^5 - 5 * k_J2 * rjz^2 / rj^7
+
+    ẍ = 2 * ẏj * ωz - xj * (n²j - ωz^2) + yj * ω̇z - zj * ωx * ωz - (ζj - ζ) * CUDA.sin(i) * CUDA.sin(θ) - 
+        r * (n²j - n²) 
+    ÿ = -2 * ẋj * ωz + 2 * żj * ωx - xj * ω̇z - yj * (n²j - ωz^2 - ωx^2) + zj * ω̇x - 
+        (ζj - ζ) * CUDA.sin(i) * CUDA.cos(θ)
+    z̈ = -2 * ẏj * ωx - xj * ωx * ωz - yj * ω̇x - zj * (n²j - ωx^2) - 
+        (ζj - ζ) * CUDA.cos(i) 
+
+    # nonlinear equations of motion 
+    dx[1:6] = T_max * [
+        ẋj / r_max
+        ẏj / r_max
+        żj / r_max 
+        ẍ / v_max + ux / mj 
+        ÿ / v_max + uy / mj
+        z̈ / v_max + uz / mj 
+    ]
+end
 
 """
     fc(x, p, t)
@@ -448,11 +506,12 @@ end
 
 function h(x::Vector, v::Vector)
 
-    y = [
-        norm(x[1:3])
-        atan(x[1]/x[2])
-        atan(x[3]/norm(x[1:2]))
-    ]
+    # y = [
+    #     norm(x[1:3])
+    #     atan(x[1]/x[2])
+    #     atan(x[3]/norm(x[1:2]))
+    # ]
+    y = I * x
     return y
 end
 

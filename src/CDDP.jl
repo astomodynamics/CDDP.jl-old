@@ -46,8 +46,11 @@ export
     get_instant_const_derivative,
     get_obs_derivatives,
     rk4_step,
+    rk4_step_cuda,
     rk2_step,
+    rk2_step_cuda,
     euler_step,
+    euler_step_cuda,
     get_continuous_dynamics,
     get_discrete_dynamics,
     get_feasibility,
@@ -89,12 +92,11 @@ include("./animate.jl")
 # mppi solvers
 export
     MPPIProblemCPU,
-    solve_mppi,
-    solve_mppi_old,
-    simulate_mppi,
+    MPPIProblemGPU,
     solve_mppi_cpu,
-    get_optimal_distribution,
-    get_sampling_cost_update
+    solve_mppi_gpu,
+    solve_mppi_old,
+    simulate_mppi
 
 include("./controller.jl")
 
