@@ -92,7 +92,7 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
     
     function ChiefDeputy(;)
 
-        dims = ModelDimension(nx=6, nu=3, nw=6, ny=3, nv=6)
+        dims = ModelDimension(nx=6, nu=3, nw=6, ny=6, nv=6)
         
         params = DynamicsParameter()
 
@@ -102,34 +102,34 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
         T_max = params.T_max
 
         """ circular orbit"""
-        x_init = [
-            -93.89268872140511 / r_max
-            68.20928216330306 / r_max
-            34.10464108165153 / r_max
-            0.037865035768176944 / v_max
-            0.2084906865487613 / v_max
-            0.10424534327438065 / v_max
-            # 4.0 / m_max
-        ]
+        # x_init = [
+        #     -93.89268872140511 / r_max
+        #     68.20928216330306 / r_max
+        #     34.10464108165153 / r_max
+        #     0.037865035768176944 / v_max
+        #     0.2084906865487613 / v_max
+        #     0.10424534327438065 / v_max
+        #     # 4.0 / m_max
+        # ]
 
-        x_final =[
-            -37.59664132226163 / r_max
-            27.312455860666148 / r_max
-            13.656227930333074 / r_max
-            0.015161970413423813 / v_max
-            0.08348413138390476 / v_max
-            0.04174206569195238 / v_max
-            # 3.9 / m_max
-        ]
+        # x_final =[
+        #     -37.59664132226163 / r_max
+        #     27.312455860666148 / r_max
+        #     13.656227930333074 / r_max
+        #     0.015161970413423813 / v_max
+        #     0.08348413138390476 / v_max
+        #     0.04174206569195238 / v_max
+        #     # 3.9 / m_max
+        # ]
 
-        œ_init = [
-            6.8642335934215095e6
-            1.3252107139528522
-            5.233336311343717e10
-            1.710422666954443
-            0.17453292519943295
-            0.5239464999775999
-        ]
+        # œ_init = [
+        #     6.8642335934215095e6
+        #     1.3252107139528522
+        #     5.233336311343717e10
+        #     1.710422666954443
+        #     0.17453292519943295
+        #     0.5239464999775999
+        # ]
 
         """ elliptical orbit (Molniya)"""
         # x_init = [
@@ -162,28 +162,28 @@ mutable struct ChiefDeputy<: AbstractDynamicsModel
         # ]
 
         """ elliptical orbit (GTO)"""
-        # x_init = [
-        #     100 / r_max
-        #     0.  / r_max
-        #     200  / r_max
-        #     -0.0 / v_max
-        #     -0.2295262475850926 / v_max
-        #     -0.0 / v_max
-        #     # 500.0 / m_max
-        # ]
+        x_init = [
+            100 / r_max
+            0.  / r_max
+            200  / r_max
+            -0.0 / v_max
+            -0.2295262475850926 / v_max
+            -0.0 / v_max
+            # 500.0 / m_max
+        ]
 
-        # x_final = [
-        #     20 / r_max
-        #     0.  / r_max
-        #     40  / r_max
-        #     -0.0 / v_max
-        #     -0.04590524951701853/ v_max
-        #     -0.0 / v_max
-        #     #  400/ m_max
-        # ]
+        x_final = [
+            20 / r_max
+            0.  / r_max
+            40  / r_max
+            -0.0 / v_max
+            -0.04590524951701853/ v_max
+            -0.0 / v_max
+            #  400/ m_max
+        ]
 
-        # # osculating orbital elements
-        # œ_init =[6.873777579835884e6, -0.002229583937249078, 6.8640542098738884e10, 0.05001634091439573, 0.00026150952573454346, 0.34880515073050467]
+        # osculating orbital elements
+        œ_init =[6.873777579835884e6, -0.002229583937249078, 6.8640542098738884e10, 0.05001634091439573, 0.00026150952573454346, 0.34880515073050467]
 
         """ test case 0"""
         # x_init = [

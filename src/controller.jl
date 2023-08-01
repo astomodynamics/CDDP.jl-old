@@ -58,6 +58,8 @@ mutable struct MPPIProblemCPU <: AbstractMPPIProblem
             dyn_funcs,
             x_init,
             x_final,
+            u_upper,
+            u_lower,
             X_ref,
             U_md,
         )
@@ -241,12 +243,11 @@ function solve_mppi_cpu(
 
     # compute control from optimal distribution
     for i in 1:tN
-        # @printf("δu[:,i,:]: %s\n", δu[i,:])
         U[:,i] += sum(δu[i,:] .* w)
     end
 
     
-    u_out = U[:, 1]
+    u_out = clamp.(U[:, 1], prob.u_lower, prob.u_upper)
     U[:, 1:end-1] = U[:, 2:end]
     U[:, end] = rand(dist)
     return u_out, U
