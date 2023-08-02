@@ -108,5 +108,9 @@ export
     solve_EKF
 include("./filter.jl")
 
+export 
+    plot_arrow!,
+    plot_arrow3d!
+include("./visualize.jl")
 
 end # module CDDP
