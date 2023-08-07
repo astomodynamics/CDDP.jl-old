@@ -1,5 +1,5 @@
 # as: arrow head size 0-1 (fraction of arrow length;  la: arrow alpha transparency 0-1
-function plot_arrow!(x, y, u, v; as=0.07, lw=1, lc=:black, la=1)
+function plot_arrow2d!(x, y, u, v; as=0.07, lw=1, lc=:black, la=1)
     nuv = sqrt(u^2 + v^2)
     v1, v2 = [u;v] / nuv,  [-v;u] / nuv
     v4 = (3*v1 + v2)/3.1623  # sqrt(10) to get unit vector

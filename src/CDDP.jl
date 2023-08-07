@@ -109,7 +109,7 @@ export
 include("./filter.jl")
 
 export 
-    plot_arrow!,
+    plot_arrow2d!,
     plot_arrow3d!
 include("./visualize.jl")
 
