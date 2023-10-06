@@ -1,5 +1,6 @@
 # CDDP
 
+(Newer version is under construction)
 Julia implementation of the constrained differential dynamic programming algorithm for solving the optimal control problem of nonlinear systems with state and control constraints.
 
 ## Installation
